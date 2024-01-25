@@ -1,0 +1,21 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "pico install",
+            "type": "shell",
+            "command": "/home/kennedn/scripts/pico_copy_and_run ${input:elf}"
+
+        }
+    ],
+    "inputs": [
+        {
+            "id": "elf",
+            "description": "Path to elf:",
+            "default": "",
+            "type": "promptString"
+        },
+    ]
+}

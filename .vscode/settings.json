@@ -4,6 +4,7 @@
         "clocks.h": "c",
         "stdio.h": "c",
         "cstdlib": "c",
-        "system_error": "c"
+        "system_error": "c",
+        "stdlib.h": "c"
     }
 }

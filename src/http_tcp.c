@@ -1,9 +1,3 @@
-/**
- * Copyright (c) 2022 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 #include <string.h>
 #include <time.h>
 
@@ -13,8 +7,12 @@
 #include "lwip/pbuf.h"
 #include "lwip/tcp.h"
 
-#if !defined(TEST_TCP_SERVER_IP)
-#error TEST_TCP_SERVER_IP not defined
+#if !defined(TCP_DESTINATION_IP)
+#error TCP_DESTINATION_IP not defined
+#endif
+
+#if !defined(TCP_DESTINATION_HOST)
+#error TCP_DESTINATION_HOST not defined
 #endif
 
 #define TCP_PORT 80
@@ -57,6 +55,10 @@ typedef struct TCP_CLIENT_T_ {
     bool complete;
     int run_count;
     bool connected;
+    char baseURL[20];
+    char method[8];
+    char endpoint[40];
+    char json_body[128];
 } TCP_CLIENT_T;
 
 static err_t tcp_client_close(void *arg) {
@@ -104,7 +106,6 @@ static err_t tcp_client_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
             return ERR_OK;
         }
 
-        // We should receive a new buffer from the server
         state->buffer_len = 0;
         state->sent_len = 0;
         DEBUG_printf("Waiting for buffer from server\n");
@@ -121,15 +122,18 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err) {
     }
     state->connected = true;
     DEBUG_printf("Connected, sending HTTP payload\n");
-    char json_body[] = "{\"code\": \"toggle\"}\n";
 
-    state->buffer_len = sprintf((char*)state->buffer, "%s %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s", 
-        "POST", 
-        "/v2/meross/sad", 
-        "api.kennedn.com", 
-        strlen(json_body), 
-        json_body
-    );
+    state->buffer_len = sprintf((char*)state->buffer, 
+        "%s %s HTTP/1.1\r\n"
+        "Host: %s\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: %d\r\n\r\n"
+        "%s", 
+            state->method, state->endpoint, 
+            state->baseURL, 
+            strlen(state->json_body), 
+            state->json_body
+        );
 
     DEBUG_printf("Writing %d bytes to server\n", state->buffer_len);
     err = tcp_write(tpcb, state->buffer, state->buffer_len, TCP_WRITE_FLAG_COPY);
@@ -143,6 +147,8 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err) {
         DEBUG_printf("Failed to send data %d\n", err);
         return tcp_result(arg, -1);
     }
+
+    state->buffer_len = 0;
 
     return ERR_OK;
 }
@@ -164,10 +170,6 @@ err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     if (!p) {
         return tcp_result(arg, -1);
     }
-    // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
-    // can use this method to cause an assertion in debug mode, if this method is called when
-    // cyw43_arch_lwip_begin IS needed
-    cyw43_arch_lwip_check();
     if (p->tot_len > 0) {
         DEBUG_printf("recv %d err %d\n", p->tot_len, err);
         for (struct pbuf *q = p; q != NULL; q = q->next) {
@@ -181,18 +183,11 @@ err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     }
     pbuf_free(p);
 
-    return tcp_result(arg, 0);
-    // If we have received the whole buffer, send it back to the server
-    // if (state->buffer_len == BUF_SIZE) {
-    //     // DEBUG_printf("Writing %d bytes to server\n", state->buffer_len);
-    //     // err_t err = tcp_write(tpcb, state->buffer, state->buffer_len, TCP_WRITE_FLAG_COPY);
-    //     // if (err != ERR_OK) {
-    //     //     DEBUG_printf("Failed to write data %d\n", err);
-    //     //     return tcp_result(arg, -1);
-    //     // }
-    //     // DEBUG_printf("Recv: %s", state->
-    // }
-    // return ERR_OK;
+    // If we have received the whole buffer, we are done
+    if (state->buffer_len == p->tot_len) {
+        return tcp_result(arg, 0);
+    }
+    return ERR_OK;
 }
 
 static bool tcp_client_open(void *arg) {
@@ -212,10 +207,6 @@ static bool tcp_client_open(void *arg) {
 
     state->buffer_len = 0;
 
-    // cyw43_arch_lwip_begin/end should be used around calls into lwIP to ensure correct locking.
-    // You can omit them if you are in a callback from lwIP. Note that when using pico_cyw_arch_poll
-    // these calls are a no-op and can be omitted, but it is a good practice to use them in
-    // case you switch the cyw43_arch type later.
     cyw43_arch_lwip_begin();
     err_t err = tcp_connect(state->tcp_pcb, &state->remote_addr, TCP_PORT, tcp_client_connected);
     cyw43_arch_lwip_end();
@@ -224,18 +215,23 @@ static bool tcp_client_open(void *arg) {
 }
 
 // Perform initialisation
-static TCP_CLIENT_T* tcp_client_init(void) {
+static TCP_CLIENT_T* tcp_client_init(const char* method, const char* endpoint, const char* json_body) {
     TCP_CLIENT_T *state = calloc(1, sizeof(TCP_CLIENT_T));
     if (!state) {
         DEBUG_printf("failed to allocate state\n");
         return NULL;
     }
-    ip4addr_aton(TEST_TCP_SERVER_IP, &state->remote_addr);
+    ip4addr_aton(TCP_DESTINATION_IP, &state->remote_addr);
+    strncpy(state->baseURL, TCP_DESTINATION_HOST, count_of(state->baseURL)-1);
+    strncpy(state->method, method, count_of(state->method)-1);
+    strncpy(state->endpoint, endpoint, count_of(state->endpoint)-1);
+    strncpy(state->json_body, json_body, count_of(state->json_body)-1);
     return state;
 }
 
-void run_tcp_client_test(void) {
-    TCP_CLIENT_T *state = tcp_client_init();
+
+void http_request(const char* method, const char* endpoint, const char* json_body) {
+    TCP_CLIENT_T *state = tcp_client_init(method, endpoint, json_body);
     if (!state) {
         return;
     }
@@ -244,21 +240,7 @@ void run_tcp_client_test(void) {
         return;
     }
     while(!state->complete) {
-        // the following #ifdef is only here so this same example can be used in multiple modes;
-        // you do not need it in your code
-#if PICO_CYW43_ARCH_POLL
-        // if you are using pico_cyw43_arch_poll, then you must poll periodically from your
-        // main loop (not from a timer) to check for Wi-Fi driver or lwIP work that needs to be done.
-        cyw43_arch_poll();
-        // you can poll as often as you like, however if you have nothing else to do you can
-        // choose to sleep until either a specified time, or cyw43_arch_poll() has work to do:
-        cyw43_arch_wait_for_work_until(make_timeout_time_ms(1000));
-#else
-        // if you are not using pico_cyw43_arch_poll, then WiFI driver and lwIP work
-        // is done via interrupt in the background. This sleep is just an example of some (blocking)
-        // work you might be doing.
-        sleep_ms(1000);
-#endif
+        tight_loop_contents();
     }
     free(state);
 }

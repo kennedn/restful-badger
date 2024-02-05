@@ -5,6 +5,7 @@
         "stdio.h": "c",
         "cstdlib": "c",
         "system_error": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "cyw43_ll.h": "c"
     }
 }

@@ -1,0 +1,1 @@
+void ntp_get_time(void (*result_cb)(datetime_t *datetime));

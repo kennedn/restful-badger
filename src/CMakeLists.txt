@@ -8,7 +8,7 @@ target_compile_definitions(badger PRIVATE
     PICO_DEOPTIMIZED_DEBUG=1
 )
 
-target_sources(badger PRIVATE badger.cpp http_tcp.c power.c)
+target_sources(badger PRIVATE badger.cpp http_tcp.c power.c ntp.c)
 
 target_include_directories(badger PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
@@ -22,7 +22,7 @@ target_link_libraries(badger
     hardware_adc
     badger2040w
     pimoroni_bus
-    pico_stdlib 
+    pico_stdlib
     pico_cyw43_arch_lwip_threadsafe_background
 )
 

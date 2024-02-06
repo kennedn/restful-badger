@@ -51,9 +51,13 @@ int power_percent(const float *voltage) {
     const float min_battery_volts = 3.4f;
     const float max_battery_volts = 4.1f;
     int percent_val = ((*voltage - min_battery_volts) / (max_battery_volts - min_battery_volts)) * 100;
-    percent_val = percent_val < 0 ? 0 : percent_val; // clamp to 0
+    percent_val = percent_val < 5 ? 5 : percent_val; // clamp to 5
     percent_val = percent_val > 100 ? 100 : percent_val; // clamp to 100
     return percent_val;
+}
+
+bool power_is_charging() {
+    return cyw43_arch_gpio_get(CYW43_WL_GPIO_VBUS_PIN);
 }
 
 void power_print() {
@@ -65,7 +69,7 @@ void power_print() {
 
     char percent_buf[10] = {0};
     power_str = (char*)"POWERED";
-    if (!cyw43_arch_gpio_get(CYW43_WL_GPIO_VBUS_PIN)) {
+    if (!power_is_charging) {
         power_str = (char*)"BATTERY";
         int percent_val = power_percent(&voltage);
         snprintf(percent_buf, sizeof(percent_buf), " (%d%%)", percent_val);

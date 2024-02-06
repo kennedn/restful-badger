@@ -15,7 +15,6 @@ target_include_directories(badger PRIVATE
 )
 
 include(${PIMORONI_PICO_PATH}/libraries/badger2040w/badger2040w.cmake)
-include(${PIMORONI_PICO_PATH}/libraries/pngdec/pngdec.cmake)
 include(${PIMORONI_PICO_PATH}/common/pimoroni_bus.cmake)
 # include(${PIMORONI_PICO_PATH}/common/pimoroni_i2c.cmake)
 
@@ -24,7 +23,6 @@ target_link_libraries(badger
     badger2040w
     pimoroni_bus
     pico_stdlib 
-    pngdec
     pico_cyw43_arch_lwip_threadsafe_background
 )
 

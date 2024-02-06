@@ -6,6 +6,12 @@
         "cstdlib": "c",
         "system_error": "c",
         "stdlib.h": "c",
-        "cyw43_ll.h": "c"
+        "cyw43_ll.h": "c",
+        "*.tcc": "cpp",
+        "deque": "cpp",
+        "list": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp"
     }
 }

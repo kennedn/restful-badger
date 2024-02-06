@@ -12,4 +12,5 @@
 
 void power_voltage(float *voltage_result);
 int power_percent(const float *voltage);
+bool power_is_charging();
 void power_print();

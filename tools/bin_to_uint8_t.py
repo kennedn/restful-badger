@@ -1,25 +1,26 @@
+#!/usr/bin/env python3
 import sys
+from pathlib import Path
 
-def generate_c_array(input_file, output_file, array_name):
+
+def generate_c_array(input_file, array_name):
     with open(input_file, 'rb') as binary_file:
         binary_data = binary_file.read()
 
-    with open(output_file, 'w') as c_file:
-        c_file.write(f'const uint8_t {array_name}[] PROGMEM = {{')
+        print(f'const uint8_t {array_name}[] PROGMEM = {{')
         for i, byte in enumerate(binary_data):
-            c_file.write(f'0x{byte:02X},')
-        c_file.write('};\n')
+            if i == 0:
+                print("\t", end="")
+            print(f'0x{byte:02X},', end="")
+        print('\n};')
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python script.py input_binary_file output_c_file array_name")
+    if len(sys.argv) != 2:
+        print("Usage: python script.py bin")
         sys.exit(1)
 
     input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    array_name = sys.argv[3]
+    array_name = Path(input_file).stem
 
-    generate_c_array(input_file, output_file, array_name)
-
-    print(f"C array generated and saved to {output_file} with the name {array_name}")
+    generate_c_array(input_file, array_name)
 

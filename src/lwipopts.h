@@ -87,11 +87,12 @@
 #define SLIP_DEBUG                  LWIP_DBG_OFF
 #define DHCP_DEBUG                  LWIP_DBG_OFF
 
+#undef CYW43_DEFAULT_IP_STA_ADDRESS
+#undef CYW43_DEFAULT_IP_STA_GATEWAY
+#undef CYW43_DEFAULT_IP_DNS
+#define CYW43_DEFAULT_IP_STA_ADDRESS LWIP_MAKEU32(192,168,1,203)    // set static ip 
+#define CYW43_DEFAULT_IP_STA_GATEWAY LWIP_MAKEU32(192,168,1,1)      // set static gateway
+#define CYW43_DEFAULT_IP_DNS         LWIP_MAKEU32(192,168,1,1)      // set DNS           
 
-#define CYW43_DEFAULT_IP_STA_ADDRESS LWIP_MAKEU32(192,168,1,203)   // set static ip 
-#define CYW43_DEFAULT_IP_STA_GATEWAY LWIP_MAKEU32(192,168,1,1)  // set static gateway
-
-// #define CYW43_DEFAULT_IP_AP_ADDRESS LWIP_MAKEU32(192,168,1,2)   // set static ip in access point mode
-// #define CYW43_DEFAULT_IP_AP_GATEWAY LWIP_MAKEU32(192,168,1,1)  // set static gateway in access point mode
 
 #endif /* __LWIPOPTS_H__ */

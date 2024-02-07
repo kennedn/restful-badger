@@ -3,9 +3,8 @@ add_executable(badger)
 target_compile_definitions(badger PRIVATE 
     WIFI_SSID=\"${WIFI_SSID}\"
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
-    TCP_DESTINATION_IP=\"${TCP_DESTINATION_IP}\"
-    TCP_DESTINATION_HOST=\"${TCP_DESTINATION_HOST}\"
-    PICO_DEOPTIMIZED_DEBUG=1
+    API_SERVER=\"${API_SERVER}\"
+    NTP_SERVER=\"pool.ntp.org\"
 )
 
 target_sources(badger PRIVATE badger.cpp http_tcp.c power.c ntp.c)
@@ -16,7 +15,6 @@ target_include_directories(badger PRIVATE
 
 include(${PIMORONI_PICO_PATH}/libraries/badger2040w/badger2040w.cmake)
 include(${PIMORONI_PICO_PATH}/common/pimoroni_bus.cmake)
-# include(${PIMORONI_PICO_PATH}/common/pimoroni_i2c.cmake)
 
 target_link_libraries(badger
     hardware_adc

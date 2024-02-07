@@ -25,6 +25,13 @@ using namespace pimoroni;
 Badger2040W badger;
 int32_t WIDTH = 296, HEIGHT= 128;
 
+datetime_t ntp_daily_alarm = datetime_t{
+    .day    = -1,
+    .hour   = 00,
+    .min    = 00,
+    .sec    = 00
+};
+
 
 const uint8_t wifi_icon[] PROGMEM = {
     0b00000000, 0b00000000, //
@@ -87,11 +94,15 @@ static const uint8_t bulb_off_64x64[512] PROGMEM = {
 
 bool got_time = false;
 
-void recv_time(datetime_t *datetime) {
+void recv_time(datetime_t *datetime, void *arg) {
     printf("Got datetime from NTP\n");
     badger.pcf85063a->set_datetime(datetime);
     rtc_set_datetime(datetime);
     got_time = true;
+}
+
+void recv_http(uint8_t *buffer, void *arg) {
+    printf("recv_http: %.2048s\n", buffer);
 }
 
 int main() {
@@ -150,9 +161,9 @@ int main() {
     printf("connected\n");
 
     std::string button = "";
-    if(badger.pressed_to_wake(badger.A))      { button += "A"; http_request("POST", "/v2/meross/sad", "{\"code\": \"toggle\"}");}
-    else if(badger.pressed_to_wake(badger.B)) { button += "B"; http_request("POST", "/v2/meross/office", "{\"code\": \"toggle\"}"); }
-    else if(badger.pressed_to_wake(badger.C)) { button += "C"; http_request("POST", "/v2/wol/pc", "{\"code\": \"status\"}"); }
+    if(badger.pressed_to_wake(badger.A))        { button += "A"; http_request(API_SERVER , "/v2/meross/sad", "POST", "{\"code\": \"toggle\"}", recv_http, NULL);}
+    else if(badger.pressed_to_wake(badger.B))   { button += "B"; http_request(API_SERVER, "/v2/meross/office", "POST", "{\"code\": \"toggle\"}", recv_http, NULL); }
+    else if(badger.pressed_to_wake(badger.C))   { button += "C"; http_request(API_SERVER, "/v2/wol/pc", "POST", "{\"code\": \"status\"}", recv_http, NULL); }
 
     // if (button != "") {
     //     badger.graphics->text("Button " + button + " pressed", Point(10, 100), 200, 2);
@@ -160,17 +171,34 @@ int main() {
     //     badger.graphics->text("Button not detected", Point(10, 100), 200, 2);
     // }
 
-    // RTC has not been set to grab the time from the internet and set it
-    datetime_t datetime = badger.pcf85063a->get_datetime();
-    if (datetime.year == 2000) {
+    datetime_t datetime;
+    badger.update_button_states();
+    // Check if RTC has been initialised previously, if not or if the RTC int is high get the internet time via NTP
+    if (!badger.pcf85063a->get_byte() || badger.pressed(badger.RTC)) {
         printf("Retrieving time from NTP\n");
-        ntp_get_time(recv_time);
+        ntp_get_time(recv_time, NULL);
         while(!got_time) {
             sleep_ms(10);
         }
         rtc_get_datetime(&datetime);
+        badger.update_button_states();
+        if (!badger.pressed(badger.RTC)) {
+            printf("Setting daily NTP time alarm\n");
+            // Set daily alarm and enable interrupt
+            badger.pcf85063a->set_alarm(ntp_daily_alarm.sec, ntp_daily_alarm.min, ntp_daily_alarm.hour, ntp_daily_alarm.day);
+            badger.pcf85063a->enable_alarm_interrupt(true);
+            // Set byte on external RTC to indicate that it has been initialised
+            badger.pcf85063a->set_byte(1);
+        }
+
+        // Clear source of interrupt
+        badger.pcf85063a->clear_alarm_flag();
+
     } else {
         printf("Retrieving time from RTC\n");
+        // Retrieve stored time from external RTC
+        datetime = badger.pcf85063a->get_datetime();
+        // Store time in internal RTC
         rtc_set_datetime(&datetime);
     }
     char datetime_str[10];

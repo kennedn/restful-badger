@@ -4,16 +4,11 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 
+#include "lwip/dns.h"
 #include "lwip/pbuf.h"
 #include "lwip/tcp.h"
 
-#if !defined(TCP_DESTINATION_IP)
-#error TCP_DESTINATION_IP not defined
-#endif
-
-#if !defined(TCP_DESTINATION_HOST)
-#error TCP_DESTINATION_HOST not defined
-#endif
+#include "http_tcp.h"
 
 #define TCP_PORT 80
 #define DEBUG_printf printf
@@ -22,7 +17,7 @@
 #define TEST_ITERATIONS 10
 #define POLL_TIME_S 5
 
-#if 1
+#if 0
 static void dump_bytes(const uint8_t *bptr, uint32_t len) {
     unsigned int i = 0;
 
@@ -52,13 +47,12 @@ typedef struct TCP_CLIENT_T_ {
     uint8_t buffer[BUF_SIZE];
     int buffer_len;
     int sent_len;
-    bool complete;
-    int run_count;
-    bool connected;
     char baseURL[20];
     char method[8];
     char endpoint[40];
     char json_body[128];
+    http_tcp_callback_t callback;
+    void *arg;
 } TCP_CLIENT_T;
 
 static err_t tcp_client_close(void *arg) {
@@ -86,10 +80,17 @@ static err_t tcp_result(void *arg, int status) {
     TCP_CLIENT_T *state = (TCP_CLIENT_T*)arg;
     if (status == 0) {
         DEBUG_printf("test success\n");
+        if (state->callback) {
+            state->callback(state->buffer, state->arg);
+        }
     } else {
         DEBUG_printf("test failed %d\n", status);
+        if (state->callback) {
+            state->callback(NULL, state->arg);
+        }
     }
-    state->complete = true;
+
+    free(state);
     return tcp_client_close(arg);
 }
 
@@ -99,13 +100,6 @@ static err_t tcp_client_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     state->sent_len += len;
 
     if (state->sent_len >= BUF_SIZE) {
-
-        state->run_count++;
-        if (state->run_count >= TEST_ITERATIONS) {
-            tcp_result(arg, 0);
-            return ERR_OK;
-        }
-
         state->buffer_len = 0;
         state->sent_len = 0;
         DEBUG_printf("Waiting for buffer from server\n");
@@ -120,7 +114,6 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err) {
         printf("connect failed %d\n", err);
         return tcp_result(arg, err);
     }
-    state->connected = true;
     DEBUG_printf("Connected, sending HTTP payload\n");
 
     state->buffer_len = sprintf((char*)state->buffer, 
@@ -214,33 +207,57 @@ static bool tcp_client_open(void *arg) {
     return err == ERR_OK;
 }
 
+// Call back with a DNS result
+static void tcp_dns_found(const char *hostname, const ip_addr_t *ipaddr, void *arg) {
+    TCP_CLIENT_T *state = (TCP_CLIENT_T*)arg;
+    if (ipaddr) {
+        state->remote_addr = *ipaddr;
+        printf("tcp address %s\n", ipaddr_ntoa(ipaddr));
+        if (!tcp_client_open(state)) {
+            tcp_result(state, -1);
+            return;
+        }
+    } else {
+        printf("tcp dns request failed\n");
+        tcp_result(state, -1);
+    }
+}
+
 // Perform initialisation
-static TCP_CLIENT_T* tcp_client_init(const char* method, const char* endpoint, const char* json_body) {
+static TCP_CLIENT_T* tcp_client_init(const char *url, const char *endpoint, const char *method, const char *json_body, http_tcp_callback_t callback, void *arg) {
     TCP_CLIENT_T *state = calloc(1, sizeof(TCP_CLIENT_T));
     if (!state) {
         DEBUG_printf("failed to allocate state\n");
         return NULL;
     }
-    ip4addr_aton(TCP_DESTINATION_IP, &state->remote_addr);
-    strncpy(state->baseURL, TCP_DESTINATION_HOST, count_of(state->baseURL)-1);
-    strncpy(state->method, method, count_of(state->method)-1);
+    strncpy(state->baseURL, url, count_of(state->baseURL)-1);
     strncpy(state->endpoint, endpoint, count_of(state->endpoint)-1);
+    strncpy(state->method, method, count_of(state->method)-1);
     strncpy(state->json_body, json_body, count_of(state->json_body)-1);
+    state->callback = callback;
+    state->arg = arg;
     return state;
 }
 
 
-void http_request(const char* method, const char* endpoint, const char* json_body) {
-    TCP_CLIENT_T *state = tcp_client_init(method, endpoint, json_body);
+void http_request(const char *url, const char *endpoint, const char *method, const char *json_body, http_tcp_callback_t callback, void *arg) {
+    TCP_CLIENT_T *state = tcp_client_init(url, endpoint, method, json_body, callback, arg);
     if (!state) {
         return;
     }
-    if (!tcp_client_open(state)) {
+
+    cyw43_arch_lwip_begin();
+    // dns_setserver(0, 
+    int err = dns_gethostbyname(url, &state->remote_addr, tcp_dns_found, state);
+    cyw43_arch_lwip_end();
+
+    if (err == ERR_OK) {                    // Cached result
+        if (!tcp_client_open(state)) {
+            tcp_result(state, -1);
+            return;
+        }
+    } else if (err != ERR_INPROGRESS) {     // ERR_INPROGRESS means the callback will set the remote address
+        printf("dns request failed\n");
         tcp_result(state, -1);
-        return;
     }
-    while(!state->complete) {
-        tight_loop_contents();
-    }
-    free(state);
 }

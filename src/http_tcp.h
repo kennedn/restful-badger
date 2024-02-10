@@ -1,2 +1,0 @@
-typedef void (*http_tcp_callback_t)(uint8_t *buffer, void *arg);
-void http_request(const char *url, const char *endpoint, const char *method, const char *json_body, http_tcp_callback_t callback, void *arg);

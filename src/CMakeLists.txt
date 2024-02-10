@@ -1,13 +1,27 @@
 add_executable(badger)
 
+# Replace ":" with ", 0x" to form the array initializer
+string(REPLACE ":" ", 0x" BSSID_HEX "${WIFI_BSSID}")
+
+# Construct the array initializer string
+set(BSSID "(const uint8_t[]){ 0x${BSSID_HEX} }")
+
 target_compile_definitions(badger PRIVATE 
     WIFI_SSID=\"${WIFI_SSID}\"
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
+    WIFI_BSSID=${BSSID}
+    WIFI_CHANNEL=${WIFI_CHANNEL}
     API_SERVER=\"${API_SERVER}\"
     NTP_SERVER=\"pool.ntp.org\"
 )
 
-target_sources(badger PRIVATE badger.cpp http_tcp.c power.c ntp.c)
+target_sources(badger PRIVATE 
+    badger.cpp 
+    power.c 
+    ntp.c
+    http.c 
+    restful.c
+)
 
 target_include_directories(badger PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}

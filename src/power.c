@@ -1,6 +1,8 @@
 #include "hardware/adc.h"
-#include "pico/float.h"
 #include "pico/cyw43_arch.h"
+#include "pico/float.h"
+
+#include "badger.h"
 
 #ifndef PICO_POWER_SAMPLE_COUNT
 #define PICO_POWER_SAMPLE_COUNT 3
@@ -8,7 +10,6 @@
 
 // Pin used for ADC 0
 #define PICO_FIRST_ADC_PIN 26
-
 
 void power_voltage(float *voltage_result) {
     cyw43_thread_enter();
@@ -18,7 +19,7 @@ void power_voltage(float *voltage_result) {
     // setup adc
     adc_gpio_init(PICO_VSYS_PIN);
     adc_select_input(PICO_VSYS_PIN - PICO_FIRST_ADC_PIN);
- 
+
     adc_fifo_setup(true, false, 0, false, false);
     adc_run(true);
 
@@ -30,7 +31,7 @@ void power_voltage(float *voltage_result) {
 
     // read vsys
     uint32_t vsys = 0;
-    for(int i = 0; i < PICO_POWER_SAMPLE_COUNT; i++) {
+    for (int i = 0; i < PICO_POWER_SAMPLE_COUNT; i++) {
         uint16_t val = adc_fifo_get_blocking();
         vsys += val;
     }
@@ -51,8 +52,8 @@ int power_percent(const float *voltage) {
     const float min_battery_volts = 3.4f;
     const float max_battery_volts = 4.1f;
     int percent_val = ((*voltage - min_battery_volts) / (max_battery_volts - min_battery_volts)) * 100;
-    percent_val = percent_val < 5 ? 5 : percent_val; // clamp to 5
-    percent_val = percent_val > 100 ? 100 : percent_val; // clamp to 100
+    percent_val = percent_val < 5 ? 5 : percent_val;      // clamp to 5
+    percent_val = percent_val > 100 ? 100 : percent_val;  // clamp to 100
     return percent_val;
 }
 
@@ -61,19 +62,19 @@ bool power_is_charging() {
 }
 
 void power_print() {
-    char *power_str = (char*)"UNKNOWN";
+    char *power_str = (char *)"UNKNOWN";
     // Get voltage
     float voltage = 0;
     power_voltage(&voltage);
     // voltage = floorf(voltage * 100) / 100;
 
     char percent_buf[10] = {0};
-    power_str = (char*)"POWERED";
+    power_str = (char *)"POWERED";
     if (!power_is_charging) {
-        power_str = (char*)"BATTERY";
+        power_str = (char *)"BATTERY";
         int percent_val = power_percent(&voltage);
         snprintf(percent_buf, sizeof(percent_buf), " (%d%%)", percent_val);
     }
 
-    printf("%f, %s%s\n", voltage, power_str, percent_buf);
+    DEBUG_printf("%f, %s%s\n", voltage, power_str, percent_buf);
 }

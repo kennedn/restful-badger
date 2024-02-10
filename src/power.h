@@ -9,6 +9,7 @@
 // Pin used for ADC 0
 #define PICO_FIRST_ADC_PIN 26
 
+#pragma once
 
 void power_voltage(float *voltage_result);
 int power_percent(const float *voltage);

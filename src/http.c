@@ -135,6 +135,10 @@ static err_t tcp_client_close(void *arg) {
     DEBUG_printf("tcp_client_close\n");
     TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
     err_t err = ERR_OK;
+    if (state == NULL) {
+        return err;
+    }
+    
     if (state->tcp_pcb != NULL) {
         tcp_arg(state->tcp_pcb, NULL);
         tcp_poll(state->tcp_pcb, NULL, 0);
@@ -161,9 +165,11 @@ static err_t tcp_result(void *arg, int status) {
         DEBUG_printf("failed %d\n", status);
     }
 
+    err_t err = tcp_client_close(arg);
     http_process_buffer(arg);
     free(state);
-    return tcp_client_close(arg);
+    DEBUG_printf("state freed\n");
+    return err;
 }
 
 static err_t tcp_client_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
@@ -322,7 +328,6 @@ void http_request(const char *url, const char *endpoint, const char *method, con
     }
 
     cyw43_arch_lwip_begin();
-    // dns_setserver(0,
     int err = dns_gethostbyname(url, &state->remote_addr, tcp_dns_found, state);
     cyw43_arch_lwip_end();
 

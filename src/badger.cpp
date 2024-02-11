@@ -12,6 +12,7 @@ extern "C" {
 #include "ntp.h"
 #include "power.h"
 #include "restful.h"
+#include "tiles.h"
 }
 
 #include "badger.h"
@@ -62,19 +63,8 @@ void ntp_callback(datetime_t *datetime, void *arg) {
     ntp_time_set = true;
 }
 
-void restful_callback(char *value, int status_code, void *arg) {
-    if (arg == NULL) {
-        return;
-    }
-    RESTFUL_REQUEST *request = (RESTFUL_REQUEST *)arg;
-    DEBUG_printf("restful_callback: value=%s, status_code=%d, caller=%d\n", value, status_code, request->caller);
-    if (!strcmp("1", value)) {
-        badger.image((const uint8_t *)image_bulb_64x64, Rect(10, 30, 64, 64));
-    } else {
-        badger.image((const uint8_t *)image_bulb_off_64x64, Rect(10, 30, 64, 64));
-    }
-    draw_status_bar();
-    badger.update();
+bool wifi_up() {
+    return cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP;
 }
 
 void retrieve_time(datetime_t *datetime) {
@@ -83,6 +73,10 @@ void retrieve_time(datetime_t *datetime) {
     // Check if RTC has been initialised previously, if not or if the RTC int is high get the internet time via NTP
     if (!badger.pcf85063a->get_byte() || badger.pressed(badger.RTC)) {
         DEBUG_printf("Retrieving time from NTP\n");
+        // Wifi must be up for the NTP request to succeed
+        while (!wifi_up()) {
+            sleep_ms(10);
+        }
         ntp_get_time(ntp_callback, datetime);
         // Block until the callback sets datetime
         while (!ntp_time_set) {
@@ -95,10 +89,6 @@ void retrieve_time(datetime_t *datetime) {
         // Store time in internal RTC
         rtc_set_datetime(datetime);
     }
-}
-
-bool wifi_up() {
-    return cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP;
 }
 
 void init() {
@@ -175,46 +165,106 @@ void draw_status_bar() {
     }
 }
 
-int main() {
-    init();
-    while(!wifi_up()) {
-        sleep_ms(10);
-    }
-
-    draw_status_bar();
-    badger.update();
-    RESTFUL_ACTION_REQUEST action_request = (RESTFUL_ACTION_REQUEST){
-        .method = "POST",
-        .endpoint = "/v2/meross",
-        .json_body = "{\"hosts\": \"office,hall_up,bedroom,sad,thermometer\", \"code\": \"toggle\"}"
-    };
-    RESTFUL_STATUS_REQUEST status_request = (RESTFUL_STATUS_REQUEST){
-        .request = (RESTFUL_ACTION_REQUEST){
-            .method = "POST",
-            .endpoint = "/v2/meross",
-            .json_body = "{\"hosts\": \"office,hall_up,bedroom,sad,thermometer\", \"code\": \"status\"}"
-        },
-        .key = "onoff",
-    };
-    RESTFUL_REQUEST request = (RESTFUL_REQUEST){
-        .caller = 1,
-        .base_url = API_SERVER,
-        .action_request = &action_request,
-        .status_request = &status_request,
-        .callback = restful_callback
-    };
-    while(true) {
-        badger.wait_for_press();
-        if (badger.pressed(badger.A)) {
-            // http_request(API_SERVER, "/v2/meross", "POST", "{\"hosts\": \"office,hall_up,bedroom,sad,thermometer\", \"code\": \"status\"}", http_callback, NULL, "onoff");
-            restful_request(&request);
+void draw_tiles(const char *name, const char *status_icon) {
+    char tiles_base_idx = tiles_get_idx();
+    for(char i=0; i< 3; i++) {
+        TILE *tile = tile_array->tiles[tiles_base_idx + i];
+        badger.image((const uint8_t *)tile->image, Rect(18 + (99*i), 32, 64, 64));
+        badger.graphics->set_pen(0);
+        badger.graphics->text(tile->name, Point(18 + (99*i), 104), WIDTH, 2);
+        if(!strcmp(name, tile->name)) {
+            badger.image((const uint8_t *)status_icon, Rect(18 + (99*i) + 44, 32 + 44, 16, 16));
         }
     }
-    // } else if (badger.pressed_to_wake(badger.B)) {
-    //     http_request(API_SERVER, "/v2/meross/office", "POST", "{\"code\": \"toggle\"}", http_callback, NULL, "message");
-    // } else if (badger.pressed_to_wake(badger.C)) {
-    //     http_request(API_SERVER, "/v2/wol/pc", "POST", "{\"code\": \"status\"}", http_callback, NULL, "data");
-    // }
+
+    for (char i=0; i < tiles_max_column(); i++) {
+        badger.graphics->set_pen(0);
+        char y = (128 / 2) - (tiles_max_column() * 10 / 2) + (i * 10);
+        badger.graphics->rectangle(Rect(286, y, 8, 8)); 
+        if (tiles_get_column() != i) {
+            badger.graphics->set_pen(15);
+            badger.graphics->rectangle(Rect(286 + 1, y + 1, 6, 6)); 
+        }
+    }
+}
+
+void restful_callback(char *value, int status_code, void *arg) {
+    if (arg == NULL) {
+        return;
+    }
+
+    RESTFUL_REQUEST *request = (RESTFUL_REQUEST *)arg;
+
+    TILE *tile = (TILE *)request->tile;
+
+    if (status_code != 200) {
+        DEBUG_printf("restful_callback: value=%s, status_code=%d, caller=%s\n", value, status_code, tile->name);
+        return;
+    }
+
+    DEBUG_printf("restful_callback: value=%s, status_code=%d, caller=%s\n", value, status_code, tile->name);
+    if (!strcmp(tile->status_on, value)) {
+        draw_tiles(tile->name, tick);
+    } else if(!strcmp(tile->status_off, value)) {
+        draw_tiles(tile->name, cross);
+    }
+    draw_status_bar();
+    badger.update();
+    restful_free_request(request);
+}
+
+int main() {
+    init();
+    tiles_make_tiles();
+    tiles_set_column((badger.pcf85063a->get_byte() - 1 >= 0) ? badger.pcf85063a->get_byte() - 1: 0);
+
+    draw_tiles(NULL, NULL);
+    draw_status_bar();
+    badger.update();
+    while(true) {
+        badger.wait_for_press();
+
+        if(!wifi_up()) {
+            continue;
+        }
+
+        char tiles_base_idx = tiles_get_idx();
+        TILE *tile;
+        if (badger.pressed(badger.A)) {
+            tile = tile_array->tiles[tiles_base_idx];
+        } else if(badger.pressed(badger.B)) {
+            tile = tile_array->tiles[tiles_base_idx + 1];
+        } else if(badger.pressed(badger.C)) {
+            tile = tile_array->tiles[tiles_base_idx + 2];
+        } else if(badger.pressed(badger.UP)) {
+            tiles_previous_column();
+            badger.pcf85063a->set_byte(tiles_get_column()+1);
+            badger.graphics->set_pen(15);
+            badger.graphics->clear();
+            draw_tiles(NULL, NULL);
+            draw_status_bar();
+            badger.update();
+            continue;
+        } else if(badger.pressed(badger.DOWN)) {
+            tiles_next_column();
+            badger.pcf85063a->set_byte(tiles_get_column()+1);
+            badger.graphics->set_pen(15);
+            badger.graphics->clear();
+            draw_tiles(NULL, NULL);
+            draw_status_bar();
+            badger.update();
+            continue;
+        }
+
+        RESTFUL_REQUEST *request = restful_make_request(
+            tile,
+            tile_array->base_url,
+            (RESTFUL_REQUEST_DATA *)(tile->action_request),
+            (RESTFUL_REQUEST_DATA *)(tile->status_request),
+            restful_callback
+        );
+        restful_request(request);
+    }
     deinit();
     return 0;
 }

@@ -129,7 +129,7 @@ for input_filename in options.file:
                 write_stream(PY_HEADER, PY_FOOTER, io.BytesIO(bytes(output_data)), out)
         else:
             image_code = '''\
-static const uint8_t {image_name}[{count}] PROGMEM = {{
+static const char {image_name}[{count}] PROGMEM = {{
     {byte_data}
 }};
     '''.format(image_name=image_name, count=len(output_data), byte_data=", ".join(f"0x{b:02x}" for b in output_data))

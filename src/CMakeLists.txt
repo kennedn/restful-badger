@@ -21,6 +21,7 @@ target_sources(badger PRIVATE
     ntp.c
     http.c 
     restful.c
+    tiles.c
 )
 
 target_include_directories(badger PRIVATE

@@ -52,12 +52,6 @@ RESTFUL_REQUEST *restful_make_request(void *tile, const char *base_url, RESTFUL_
 
 void restful_free_request(RESTFUL_REQUEST *request) {
     free(request->base_url);
-    // if (request->action_request) {
-    //     restful_free_request_data(request->action_request);
-    // }
-    // if (request->status_request) {
-    //     restful_free_request_data(request->status_request);
-    // }
     free(request);
 }
 

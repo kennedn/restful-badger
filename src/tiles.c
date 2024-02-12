@@ -95,7 +95,7 @@ char tiles_get_idx() {
 }
 
 void tiles_make_tiles() {
-    tiles_init(API_SERVER, 4);
+    tiles_init(API_SERVER, 8);
     RESTFUL_REQUEST_DATA *action_request;
     RESTFUL_REQUEST_DATA *status_request;
 
@@ -113,7 +113,7 @@ void tiles_make_tiles() {
     );
     tiles_add_tile(
         "office",
-        image_bulb_64x64,
+        image_tile_bulb,
         "1",
         "0",
         action_request,
@@ -134,7 +134,7 @@ void tiles_make_tiles() {
     );
     tiles_add_tile(
         "bedroom",
-        image_bulb_64x64,
+        image_tile_bulb,
         "1",
         "0",
         action_request,
@@ -155,7 +155,7 @@ void tiles_make_tiles() {
     );
     tiles_add_tile(
         "hall up",
-        image_bulb_64x64,
+        image_tile_bulb,
         "1",
         "0",
         action_request,
@@ -176,7 +176,7 @@ void tiles_make_tiles() {
     );
     tiles_add_tile(
         "thermo",
-        image_bulb_64x64,
+        image_tile_bulb,
         "1",
         "0",
         action_request,
@@ -197,7 +197,7 @@ void tiles_make_tiles() {
     );
     tiles_add_tile(
         "sad",
-        image_bulb_64x64,
+        image_tile_bulb,
         "1",
         "0",
         action_request,
@@ -206,22 +206,16 @@ void tiles_make_tiles() {
 
     action_request = restful_make_request_data(
         "POST",
-        "/v2/meross/tree",
+        "/v2/meross/tree2",
         "{\"code\": \"toggle\"}",
         NULL
     );
-    status_request = restful_make_request_data(
-        "POST",
-        "/v2/meross/tree",
-        "{\"code\": \"status\"}",
-        "onoff"
-    );
     tiles_add_tile(
         "tree",
-        image_bulb_64x64,
+        image_tile_flame,
         "1",
         "0",
         action_request,
-        status_request
+        NULL
     );
 }

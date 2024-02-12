@@ -76,6 +76,7 @@ static void http_process_buffer(void *arg) {
     // Move past deliminater and convert to number
     int response_code = atoi(++message_body);
 
+    // Key wasn't provided by user, so exit early
     if (state->key[0] == '\0') {
         state->callback(NULL, response_code, state->arg);
         return;
@@ -105,7 +106,8 @@ static void http_process_buffer(void *arg) {
     // Build substring search and get a pointer to the first occurrence of the search
     sprintf(key, "\"%s\":", state->key);
     token = strstr(message_body, key);
-    if (value == NULL) {
+    // Key not found in JSON, exit early
+    if (token == NULL) {
         state->callback(NULL, response_code, state->arg);
         return;
     }
@@ -341,5 +343,3 @@ void http_request(const char *url, const char *endpoint, const char *method, con
         tcp_result(state, -1);
     }
 }
-
-// void http_request_with_status

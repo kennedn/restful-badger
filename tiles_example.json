@@ -1,0 +1,45 @@
+[
+    {
+        "name": "office",
+        "image_idx": 0,
+        "action_request": {
+            "method": "POST",
+            "endpoint": "/v2/meross/office",
+            "json_body": "{\"code\": \"toggle\"}"
+        },
+        "status_request": {
+            "method": "POST",
+            "endpoint": "/v2/meross/office",
+            "json_body": "{\"code\": \"status\"}",
+            "key": "onoff",
+            "on_value": "1",
+            "off_value": "0"
+        }
+    },
+    {
+        "name": "sad",
+        "image_idx": 0,
+        "action_request": {
+            "method": "POST",
+            "endpoint": "/v2/meross/sad",
+            "json_body": "{\"code\": \"toggle\"}"
+        },
+        "status_request": {
+            "method": "POST",
+            "endpoint": "/v2/meross/sad",
+            "json_body": "{\"code\": \"status\"}",
+            "key": "onoff",
+            "on_value": "1",
+            "off_value": "0"
+        }
+    },
+    {
+        "name": "tree",
+        "image_idx": 0,
+        "action_request": {
+            "method": "POST",
+            "endpoint": "/v2/meross/tree",
+            "json_body": "{\"code\": \"toggle\"}"
+        }
+    }
+]

@@ -9,6 +9,8 @@ typedef struct RESTFUL_REQUEST_DATA_ {
     char *endpoint;
     char *json_body;
     char *key;
+    char *on_value;
+    char *off_value;
 } RESTFUL_REQUEST_DATA;
 
 typedef struct RESTFUL_REQUEST_ {
@@ -21,6 +23,6 @@ typedef struct RESTFUL_REQUEST_ {
 
 void restful_request(RESTFUL_REQUEST *request);
 RESTFUL_REQUEST *restful_make_request(void *tile, const char *base_url, RESTFUL_REQUEST_DATA *action_request, RESTFUL_REQUEST_DATA *status_request, restful_callback_t callback);
-RESTFUL_REQUEST_DATA *restful_make_request_data(const char *method, const char *endpoint, const char *json_body, const char *key);
+RESTFUL_REQUEST_DATA *restful_make_request_data(char *method, char *endpoint, char *json_body, char *key, char *on_value, char *off_value);
 void restful_free_request(RESTFUL_REQUEST *request);
 void restful_free_request_data(RESTFUL_REQUEST_DATA *request);

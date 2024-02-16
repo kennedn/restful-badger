@@ -11,6 +11,7 @@ target_compile_definitions(badger PRIVATE
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
     WIFI_BSSID=${BSSID}
     WIFI_CHANNEL=${WIFI_CHANNEL}
+    WIFI_STATUS_POLL_MS=3000
     API_SERVER=\"${API_SERVER}\"
     NTP_SERVER=\"pool.ntp.org\"
 )

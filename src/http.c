@@ -47,12 +47,12 @@ typedef struct TCP_CLIENT_T_ {
     int buffer_len;
     int sent_len;
     char base_url[20];
-    char method[8];
-    char endpoint[40];
-    char json_body[128];
+    const char *method;
+    const char *endpoint;
+    const char *json_body;
+    const char *key;
     http_callback_t callback;
     void *arg;
-    char key[10];
 } TCP_CLIENT_T;
 
 /*!
@@ -77,7 +77,7 @@ static void http_process_buffer(void *arg) {
     int response_code = atoi(++message_body);
 
     // Key wasn't provided by user, so exit early
-    if (state->key[0] == '\0') {
+    if (!state->key) {
         state->callback(NULL, response_code, state->arg);
         return;
     }
@@ -303,28 +303,25 @@ static void tcp_dns_found(const char *hostname, const ip_addr_t *ipaddr, void *a
 }
 
 // Perform initialisation
-static TCP_CLIENT_T *tcp_client_init(const char *url, const char *endpoint, const char *method, const char *json_body, http_callback_t callback, void *arg, const char *key) {
+static TCP_CLIENT_T *tcp_client_init(const char *url, const char *endpoint, const char *method, const char *json_body, const char *key, http_callback_t callback, void *arg) {
     TCP_CLIENT_T *state = calloc(1, sizeof(TCP_CLIENT_T));
     if (!state) {
         DEBUG_printf("failed to allocate state\n");
         return NULL;
     }
     strncpy(state->base_url, url, count_of(state->base_url) - 1);
-    strncpy(state->endpoint, endpoint, count_of(state->endpoint) - 1);
-    strncpy(state->method, method, count_of(state->method) - 1);
-    strncpy(state->json_body, json_body, count_of(state->json_body) - 1);
+    state->endpoint = endpoint;
+    state->method = method;
+    state->json_body = json_body;
+    state->key = key;
 
-    state->key[0] = '\0';
-    if (key != NULL) {
-        strncpy(state->key, key, count_of(state->key) - 1);
-    }
     state->callback = callback;
     state->arg = arg;
     return state;
 }
 
-void http_request(const char *url, const char *endpoint, const char *method, const char *json_body, http_callback_t callback, void *arg, const char *key) {
-    TCP_CLIENT_T *state = tcp_client_init(url, endpoint, method, json_body, callback, arg, key);
+void http_request(const char *url, const char *endpoint, const char *method, const char *json_body, const char *key, http_callback_t callback, void *arg) {
+    TCP_CLIENT_T *state = tcp_client_init(url, endpoint, method, json_body, key, callback, arg);
     if (!state) {
         return;
     }

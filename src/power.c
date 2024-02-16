@@ -1,6 +1,7 @@
 #include "hardware/adc.h"
 #include "pico/cyw43_arch.h"
 #include "pico/float.h"
+#include <string.h>
 
 #include "badger.h"
 
@@ -49,8 +50,8 @@ void power_voltage(float *voltage_result) {
 }
 
 int power_percent(const float *voltage) {
-    const float min_battery_volts = 3.4f;
-    const float max_battery_volts = 4.1f;
+    const float min_battery_volts = 3.3f;
+    const float max_battery_volts = 4.02f;
     int percent_val = ((*voltage - min_battery_volts) / (max_battery_volts - min_battery_volts)) * 100;
     percent_val = percent_val < 5 ? 5 : percent_val;      // clamp to 5
     percent_val = percent_val > 100 ? 100 : percent_val;  // clamp to 100
@@ -70,7 +71,7 @@ void power_print() {
 
     char percent_buf[10] = {0};
     power_str = (char *)"POWERED";
-    if (!power_is_charging) {
+    if (!power_is_charging()) {
         power_str = (char *)"BATTERY";
         int percent_val = power_percent(&voltage);
         snprintf(percent_buf, sizeof(percent_buf), " (%d%%)", percent_val);

@@ -74,9 +74,9 @@ void restful_callback(char *value, int status_code, void *arg) {
     }
 
     DEBUG_printf("restful_callback: value=%s, status_code=%d, caller=%s\n", value ? value : "NULL", status_code, tile->name);
-    if (value && !strcmp(tile->status_on, value)) {
+    if (value && !strcmp(request->status_request->on_value, value)) {
         draw_tiles(tile->name, image_indicator_tick);
-    } else if(value && !strcmp(tile->status_off, value)) {
+    } else if(value && !strcmp(request->status_request->off_value, value)) {
         draw_tiles(tile->name, image_indicator_cross);
     } else {
         draw_tiles(tile->name, image_indicator_question);
@@ -123,13 +123,24 @@ alarm_id_t reset_halt_timeout(alarm_id_t id) {
     return add_alarm_in_ms(HALT_TIMEOUT_MS, halt_timeout_callback, NULL, false);
 }
 
+
+void wifi_connect_async() {
+    // Use cyw43_wifi_join so that wifi channel can be specified. This shaves ~700ms of connection time, static IP / disable DNS in lwipopts.h shaves ~800ms too
+    cyw43_wifi_join(&cyw43_state, strlen(WIFI_SSID), (const uint8_t *)WIFI_SSID, strlen(WIFI_PASSWORD),
+                    (const uint8_t *)WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, WIFI_BSSID, WIFI_CHANNEL);
+}
+
 bool wifi_up() {
     return cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP;
 }
 
 void wifi_wait() {
+    uint32_t sw_timer = 0;
     while(!wifi_up()) {
-        tight_loop_contents();
+        if ((sw_timer == 0 || (to_ms_since_boot(get_absolute_time()) - sw_timer) > WIFI_STATUS_POLL_MS) && cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA) <= 0) {
+            wifi_connect_async();
+            sw_timer = to_ms_since_boot(get_absolute_time());
+        }
     }
 }
 
@@ -242,9 +253,8 @@ void init() {
         return;
     }
     cyw43_arch_enable_sta_mode();
-    // Use cyw43_wifi_join so that wifi channel can be specified. This shaves ~700ms of connection time, static IP / disable DNS in lwipopts.h shaves ~800ms too
-    cyw43_wifi_join(&cyw43_state, strlen(WIFI_SSID), (const uint8_t *)WIFI_SSID, strlen(WIFI_PASSWORD),
-                    (const uint8_t *)WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, WIFI_BSSID, WIFI_CHANNEL);
+
+    wifi_connect_async();
 
     badger.graphics->set_font("bitmap8");
     badger.uc8151->set_update_speed(2);
@@ -266,10 +276,11 @@ int main() {
     tiles_make_tiles();
     // External RTC has 1 free byte, we can use this to store the current column and retrieve at reboot
     // This limits the max num of columns to 2^8 - 2, since 0 is being used here to signal that the RTC is not initialised
-    tiles_set_column((badger.pcf85063a->get_byte() - 1 >= 0) ? badger.pcf85063a->get_byte() - 1: 0);
+    uint8_t rtc_byte = badger.pcf85063a->get_byte();
+    tiles_set_column((rtc_byte - 1 >= 0) ? rtc_byte - 1: 0);
 
     // If External RTC is not initialized or we were woken by an external RTC interrupt
-    if(!badger.pcf85063a->get_byte() || badger.pressed_to_wake(badger.RTC)) {
+    if(!rtc_byte || badger.pressed_to_wake(badger.RTC)) {
         // Must wait for WiFi to be up before triggering an NTP request
         wifi_wait();
         retrieve_time(true);
@@ -297,16 +308,16 @@ int main() {
         badger.graphics->set_pen(15);
         badger.graphics->clear();
     } 
+
     draw_tiles(NULL, NULL);
     draw_status_bar();
     badger.update();
 
     alarm_id_t halt_timeout_id = -1;
     while(true) {
+        halt_timeout_id = reset_halt_timeout(halt_timeout_id);
         // Wait for button press
         wait_for_button_press_release();
-        
-        halt_timeout_id = reset_halt_timeout(halt_timeout_id);
 
         char tiles_base_idx = tiles_get_idx();
         TILE *tile;

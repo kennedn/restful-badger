@@ -15,7 +15,7 @@ void restful_callback(char *value, int response_code, void *arg) {
     }
     RESTFUL_REQUEST_DATA *status_request = request->status_request;
     http_request(request->base_url, status_request->endpoint, status_request->method, 
-        status_request->json_body, request->callback, request, status_request->key);
+        status_request->json_body, status_request->key, request->callback, request);
 }
 
 void restful_request(RESTFUL_REQUEST *request) {
@@ -32,7 +32,7 @@ void restful_request(RESTFUL_REQUEST *request) {
         return;
     }
 
-    http_request(request->base_url, sub_request->endpoint, sub_request->method, sub_request->json_body, callback, request, key);
+    http_request(request->base_url, sub_request->endpoint, sub_request->method, sub_request->json_body, key, callback, request);
 }
 
 RESTFUL_REQUEST *restful_make_request(void *tile, const char *base_url, RESTFUL_REQUEST_DATA *action_request, RESTFUL_REQUEST_DATA *status_request, restful_callback_t callback) {
@@ -55,24 +55,26 @@ void restful_free_request(RESTFUL_REQUEST *request) {
     free(request);
 }
 
- RESTFUL_REQUEST_DATA *restful_make_request_data(const char *method, const char *endpoint, const char *json_body, const char *key) {
+RESTFUL_REQUEST_DATA *restful_make_request_data(char *method, char *endpoint, char *json_body, char *key, char *on_value, char *off_value) {
     if (!method || !endpoint || !json_body) {
         DEBUG_printf("Required data in request data was NULL");
         return NULL;
     }
-    RESTFUL_REQUEST_DATA *request_data = (RESTFUL_REQUEST_DATA *)malloc(sizeof(RESTFUL_REQUEST_DATA));
-    request_data->method = (char*) malloc(strlen(method) + 1 * sizeof(char));
-    strcpy(request_data->method, method);
-    request_data->endpoint = (char*) malloc(strlen(endpoint) + 1 * sizeof(char));
-    strcpy(request_data->endpoint, endpoint);
-    request_data->json_body = (char*) malloc(strlen(json_body) + 1 * sizeof(char));
-    strcpy(request_data->json_body, json_body);
-    if (key != NULL) {
-        request_data->key = (char*) malloc(strlen(key) + 1 * sizeof(char));
-        strcpy(request_data->key, key);
-    } else {
-        request_data->key = NULL;
+    if (key && (!on_value || !off_value)) {
+        DEBUG_printf("On and Off values missing despite key being specified");
+        return NULL;
     }
+    RESTFUL_REQUEST_DATA *request_data = (RESTFUL_REQUEST_DATA *)malloc(sizeof(RESTFUL_REQUEST_DATA));
+    request_data->method = method;
+    request_data->endpoint = endpoint;
+    request_data->json_body = json_body;
+    request_data->key = NULL;
+    if(key) {
+        request_data->key = key;
+        request_data->on_value = on_value;
+        request_data->off_value = off_value;
+    } 
+
     return request_data;
  }
 
@@ -82,5 +84,7 @@ void restful_free_request_data(RESTFUL_REQUEST_DATA *request) {
     free(request->json_body);
     if (request->key) {
         free(request->key);
+        free(request->on_value);
+        free(request->off_value);
     }
 }

@@ -15,6 +15,12 @@
         "vector": "cpp",
         "string.h": "c",
         "time.h": "c",
-        "pbuf.h": "c"
+        "pbuf.h": "c",
+        "array": "cpp",
+        "string_view": "cpp",
+        "span": "cpp",
+        "charconv": "cpp",
+        "chrono": "cpp",
+        "cstdint": "cpp"
     }
 }

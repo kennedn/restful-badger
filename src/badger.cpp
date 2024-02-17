@@ -18,11 +18,13 @@ extern "C" {
 #include "badger.h"
 #include "libraries/badger2040w/badger2040w.hpp"
 
+#define WIFI_STATUS_POLL_MS 3000
+#define WIDTH 296
+#define HEIGHT 128
 
 using namespace pimoroni;
 
 Badger2040W badger;
-int32_t WIDTH = 296, HEIGHT = 128;
 
 // 12am daily alarm
 datetime_t ntp_daily_alarm = datetime_t{
@@ -68,7 +70,7 @@ void restful_callback(char *value, int status_code, void *arg) {
     TILE *tile = (TILE *)request->tile;
 
     if (status_code != 200) {
-        draw_tiles(tile->name, image_indicator_cross);
+        draw_tiles(tile->name, image_indicator_question);
     } else if (status_code == 200 && !value) {
         draw_tiles(tile->name, image_indicator_tick);
     }
@@ -78,7 +80,7 @@ void restful_callback(char *value, int status_code, void *arg) {
         draw_tiles(tile->name, image_indicator_tick);
     } else if(value && !strcmp(request->status_request->off_value, value)) {
         draw_tiles(tile->name, image_indicator_cross);
-    } else {
+    } else if(value) {
         draw_tiles(tile->name, image_indicator_question);
     }
     draw_status_bar();

@@ -1,19 +1,34 @@
 add_executable(badger)
 
-# Replace ":" with ", 0x" to form the array initializer
-string(REPLACE ":" ", 0x" BSSID_HEX "${WIFI_BSSID}")
+# Default definitions
+set(NTP_SERVER "pool.ntp.org" CACHE STRING "Specify the NTP server")
+set(IP_ADDRESS "192.168.1.203" CACHE STRING "Specify IP Address")
+set(IP_GATEWAY "192.168.1.1" CACHE STRING "Specify IP Gateway")
+set(IP_DNS "192.168.1.1" CACHE STRING "Specify IP DNS")
 
-# Construct the array initializer string
-set(BSSID "(const uint8_t[]){ 0x${BSSID_HEX} }")
+# BSSID format
+string(REPLACE ":" ", 0x" BSSID_HEX "${WIFI_BSSID}")
+set(BSSID_FMT "(const uint8_t[]){ 0x${BSSID_HEX} }")
+
+# IP format
+string(REPLACE "." ", " IP_ADDRESS_FMT "${IP_ADDRESS}")
+string(REPLACE "." ", " IP_GATEWAY_FMT "${IP_GATEWAY}")
+string(REPLACE "." ", " IP_DNS_FMT "${IP_DNS}")
+set(IP_ADDRESS_FMT "LWIP_MAKEU32(${IP_ADDRESS_FMT})")
+set(IP_GATEWAY_FMT "LWIP_MAKEU32(${IP_GATEWAY_FMT})")
+set(IP_DNS_FMT "LWIP_MAKEU32(${IP_DNS_FMT})")
 
 target_compile_definitions(badger PRIVATE 
     WIFI_SSID=\"${WIFI_SSID}\"
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
-    WIFI_BSSID=${BSSID}
+    WIFI_BSSID=${BSSID_FMT}
     WIFI_CHANNEL=${WIFI_CHANNEL}
-    WIFI_STATUS_POLL_MS=3000
     API_SERVER=\"${API_SERVER}\"
-    NTP_SERVER=\"pool.ntp.org\"
+
+    NTP_SERVER=\"${NTP_SERVER}\"
+    IP_ADDRESS=${IP_ADDRESS_FMT}
+    IP_GATEWAY=${IP_GATEWAY_FMT}
+    IP_DNS=${IP_DNS_FMT}
 )
 
 target_sources(badger PRIVATE 

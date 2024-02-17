@@ -52,7 +52,7 @@
     },
     {
         "name": "thermo",
-        "image_idx": 0,
+        "image_idx": 1,
         "action_request": {
             "method": "POST",
             "endpoint": "/v2/meross/thermometer",
@@ -69,7 +69,7 @@
     },
     {
         "name": "sad",
-        "image_idx": 0,
+        "image_idx": 1,
         "action_request": {
             "method": "POST",
             "endpoint": "/v2/meross/sad",
@@ -86,10 +86,10 @@
     },
     {
         "name": "tree",
-        "image_idx": 1,
+        "image_idx": 0,
         "action_request": {
             "method": "POST",
-            "endpoint": "/v2/meross/tree",
+            "endpoint": "/v2/meross/tree2",
             "json_body": "{\"code\": \"toggle\"}"
         }
     }

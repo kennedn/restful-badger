@@ -37,7 +37,7 @@ void restful_request(RESTFUL_REQUEST *request) {
 
 RESTFUL_REQUEST *restful_make_request(void *tile, const char *base_url, RESTFUL_REQUEST_DATA *action_request, RESTFUL_REQUEST_DATA *status_request, restful_callback_t callback) {
     if (!base_url || !callback || (!action_request && !status_request)) {
-        DEBUG_printf("Required data in request was NULL");
+        DEBUG_printf("Required data in request was NULL\n");
         return NULL;
     }
     RESTFUL_REQUEST *request = (RESTFUL_REQUEST *)malloc(sizeof(RESTFUL_REQUEST));
@@ -57,11 +57,11 @@ void restful_free_request(RESTFUL_REQUEST *request) {
 
 RESTFUL_REQUEST_DATA *restful_make_request_data(char *method, char *endpoint, char *json_body, char *key, char *on_value, char *off_value) {
     if (!method || !endpoint || !json_body) {
-        DEBUG_printf("Required data in request data was NULL");
+        DEBUG_printf("Required data in request data was NULL\n");
         return NULL;
     }
     if (key && (!on_value || !off_value)) {
-        DEBUG_printf("On and Off values missing despite key being specified");
+        DEBUG_printf("On and Off values missing despite key being specified\n");
         return NULL;
     }
     RESTFUL_REQUEST_DATA *request_data = (RESTFUL_REQUEST_DATA *)malloc(sizeof(RESTFUL_REQUEST_DATA));

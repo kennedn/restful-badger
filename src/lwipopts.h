@@ -89,8 +89,8 @@
 #undef CYW43_DEFAULT_IP_STA_ADDRESS
 #undef CYW43_DEFAULT_IP_STA_GATEWAY
 #undef CYW43_DEFAULT_IP_DNS
-#define CYW43_DEFAULT_IP_STA_ADDRESS LWIP_MAKEU32(192, 168, 1, 203)  // set static ip
-#define CYW43_DEFAULT_IP_STA_GATEWAY LWIP_MAKEU32(192, 168, 1, 1)    // set static gateway
-#define CYW43_DEFAULT_IP_DNS LWIP_MAKEU32(192, 168, 1, 1)            // set DNS
+#define CYW43_DEFAULT_IP_STA_ADDRESS IP_ADDRESS   // set static ip
+#define CYW43_DEFAULT_IP_STA_GATEWAY IP_GATEWAY   // set static gateway
+#define CYW43_DEFAULT_IP_DNS IP_DNS               // set DNS
 
 #endif /* __LWIPOPTS_H__ */

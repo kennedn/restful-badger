@@ -17,7 +17,7 @@ def main():
     with open(args.file, 'r') as file:
         tiles = json.load(file)
     
-    # Create an array with a fixed size (1000000 elements) of unsigned integers (uint8)
+    # Create an array of unsigned integers (uint8)
     buffer = array.array('B')
 
 

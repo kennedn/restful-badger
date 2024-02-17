@@ -37,7 +37,7 @@ void tiles_free() {
 
 void tiles_add_tile(char *name, char image_idx, void *action_request, void *status_request) {
     if (!name) {
-        DEBUG_printf("tiles_add_tile: invalid parameters");
+        DEBUG_printf("tiles_add_tile: invalid parameters\n");
         return;
     }
     TILE *tile = (TILE *)malloc(sizeof(TILE));
@@ -54,7 +54,7 @@ void tiles_add_tile(char *name, char image_idx, void *action_request, void *stat
     }
 
     if(tile_array->used >= TILES_MAX) {
-        DEBUG_printf("Hit TILES_MAX(%d), skipping tile", TILES_MAX);
+        DEBUG_printf("Hit TILES_MAX(%d), skipping tile\n", TILES_MAX);
         free(tile);
         return;
     }
@@ -98,6 +98,7 @@ void tiles_make_str(char **dest, const char *src, char str_size) {
 }
 
 void tiles_make_tiles() {
+    DEBUG_printf("tiles_make_tiles: start\n");
     tiles_init(API_SERVER, 8);
 
     RESTFUL_REQUEST_DATA *action_request;
@@ -122,7 +123,9 @@ void tiles_make_tiles() {
         ptr += str_size;
 
         char request_mask = tiles_data[ptr++];
+
         // Action request present
+        action_request = NULL;
         if (request_mask & 1) { 
             str_size = tiles_data[ptr++];
             tiles_make_str(&method, (char *)&tiles_data[ptr], str_size);
@@ -146,6 +149,7 @@ void tiles_make_tiles() {
             );
         }
         // Status request present
+        status_request = NULL;
         if (request_mask & 2) { 
             str_size = tiles_data[ptr++];
             tiles_make_str(&method, (char *)&tiles_data[ptr], str_size);
@@ -185,4 +189,5 @@ void tiles_make_tiles() {
 
         i++;
     }
+    DEBUG_printf("tiles_make_tiles: end\n");
 }

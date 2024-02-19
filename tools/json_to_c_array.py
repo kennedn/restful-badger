@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import array
 import argparse
 import json
@@ -11,6 +13,8 @@ def append_string(buffer, string):
 def main():
     parser = argparse.ArgumentParser(description='Read JSON array from file')
     parser.add_argument('-f', '--file', required=True, type=str, help='Path to the JSON file')
+    parser.add_argument('-w', '--wrap', default=False, action="store_true", help='Wrap array in C variable declaration')
+
 
     args = parser.parse_args()
 
@@ -52,7 +56,11 @@ def main():
     #         print(byte, end=",")
     # print()
 
-    print(f"static const char tiles_data[{len(buffer)}] PROGMEM = {{\n    {', '.join(f'0x{b:02x}' for b in buffer)}\n}};")
+    if args.wrap:
+        print(f"static const char tiles_data[{len(buffer)}] PROGMEM = {{\n    {', '.join(str(b) for b in buffer)}\n}};")
+    else:
+        print(','.join(str(b) for b in buffer), end="")
+
 
 
 if __name__ == "__main__":

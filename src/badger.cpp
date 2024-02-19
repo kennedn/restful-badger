@@ -118,7 +118,7 @@ void retrieve_time(bool from_ntp) {
     }
 }
 
-alarm_id_t reset_halt_timeout(alarm_id_t id) {
+alarm_id_t rearm_halt_timeout(alarm_id_t id) {
     if (id != -1) {
         cancel_alarm(id);
     }
@@ -139,6 +139,7 @@ bool wifi_up() {
 void wifi_wait() {
     uint32_t sw_timer = 0;
     while(!wifi_up()) {
+        // Retry wifi connect if link status is in error
         if ((sw_timer == 0 || (to_ms_since_boot(get_absolute_time()) - sw_timer) > WIFI_STATUS_POLL_MS) && cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA) <= 0) {
             wifi_connect_async();
             sw_timer = to_ms_since_boot(get_absolute_time());
@@ -213,13 +214,17 @@ void draw_status_bar(bool sleep) {
 }
 
 void draw_tiles(const char *name, const char *indicator_icon) {
-    char tiles_base_idx = tiles_get_idx();
+    char tiles_base_idx = tiles_get_base_idx();
     char tile_pad_x = WIDTH / 3;
     char tile_pad_y = 32;
     char tile_offset = 18;
+    char column_pad_y = 10;
     char indicator_offset = 44;
     char text_offset = 8;
     for(char i=0; i< 3; i++) {
+        if (!tiles_idx_in_bounds(tiles_base_idx + i)) {
+            break;
+        } 
         TILE *tile = tile_array->tiles[tiles_base_idx + i];
         badger.image((const uint8_t *)tile->image, Rect(tile_offset + (tile_pad_x*i), tile_pad_y, image_tile_size, image_tile_size));
         badger.graphics->set_pen(0);
@@ -231,11 +236,16 @@ void draw_tiles(const char *name, const char *indicator_icon) {
         }
     }
 
-    for (char i=0; i < tiles_max_column(); i++) {
+    DEBUG_printf("current column: %d, max: %d\n", tiles_get_column(), tiles_max_column());
+    // Can only fit 10 squares on screen at a time, so if max columns exceeds this we must split the display up into sections of 10
+    char current_col = tiles_get_column() % 10;
+    char last_10s_col = tiles_max_column() - tiles_max_column() % 10;
+    char max_col = (tiles_get_column() < last_10s_col) ? 10 : tiles_max_column() % 10;
+    for (char i=0; i < max_col; i++) {
         badger.graphics->set_pen(0);
-        char y = (HEIGHT / 2) - (tiles_max_column() * 10 / 2) + (i * 10);
+        char y = column_pad_y + (HEIGHT / 2) - (max_col * 10 / 2) + (i * 10);
         badger.graphics->rectangle(Rect(WIDTH - 10, y, 8, 8)); 
-        if (tiles_get_column() != i) {
+        if (current_col != i) {
             badger.graphics->set_pen(15);
             badger.graphics->rectangle(Rect(WIDTH - 10 + 1, y + 1, 6, 6)); 
         }
@@ -317,17 +327,26 @@ int main() {
 
     alarm_id_t halt_timeout_id = -1;
     while(true) {
-        halt_timeout_id = reset_halt_timeout(halt_timeout_id);
+        halt_timeout_id = rearm_halt_timeout(halt_timeout_id);
         // Wait for button press
         wait_for_button_press_release();
 
-        char tiles_base_idx = tiles_get_idx();
+        char tiles_base_idx = tiles_get_base_idx();
         TILE *tile;
         if (badger.pressed(badger.A)) {
+            if (!tiles_idx_in_bounds(tiles_base_idx)) {
+                continue;
+            }
             tile = tile_array->tiles[tiles_base_idx];
         } else if(badger.pressed(badger.B)) {
+            if (!tiles_idx_in_bounds(tiles_base_idx + 1)) {
+                continue;
+            }
             tile = tile_array->tiles[tiles_base_idx + 1];
         } else if(badger.pressed(badger.C)) {
+            if (!tiles_idx_in_bounds(tiles_base_idx + 2)) {
+                continue;
+            }
             tile = tile_array->tiles[tiles_base_idx + 2];
         } else if(badger.pressed(badger.UP) || badger.pressed(badger.DOWN)) {
             if (badger.pressed(badger.UP)) {

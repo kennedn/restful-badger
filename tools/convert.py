@@ -86,7 +86,7 @@ def convert_image(img):
     except ValueError:
         pass
     img = img.convert("1")  # convert to black and white
-    img = ImageOps.invert(img)
+    # img = ImageOps.invert(img)
     return img
 
 

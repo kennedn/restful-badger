@@ -7,8 +7,14 @@
 #include "images.h"
 #include "badger.h"
 
+#define TILES_MAX 255
+
 TILES *tile_array;
 char tile_column;
+static const char tiles_data[] PROGMEM = {
+    TILES_DATA
+};
+
 
 void tiles_init(const char *base_url, char size) {
     tile_array = (TILES *)malloc(sizeof(TILES));
@@ -68,7 +74,11 @@ void tiles_add_tile(char *name, char image_idx, void *action_request, void *stat
 }
 
 char tiles_max_column() {
-    return tile_array->used / 3;
+    if (tile_array->used % 3 != 0) {
+        return (tile_array->used + 3) / 3;
+    } else {
+        return tile_array->used / 3;
+    }
 }
 
 void tiles_previous_column() {
@@ -84,11 +94,18 @@ char tiles_get_column() {
 }
 
 void tiles_set_column(char column) {
-    tile_column = column;
+    tile_column = 0;
+    if (column < tiles_max_column()) {
+        tile_column = column;
+    }
 }
 
-char tiles_get_idx() {
+char tiles_get_base_idx() {
     return (tile_column * 3 > tile_array->used) ? tile_array->used : tile_column * 3;
+}
+
+char tiles_idx_in_bounds(char idx) {
+    return idx < tile_array->used;
 }
 
 void tiles_make_str(char **dest, const char *src, char str_size) {
@@ -111,11 +128,10 @@ void tiles_make_tiles() {
     char *on_value;
     char *off_value;
     char str_size = 0;
-    char i = 0;
     int ptr = 0;
     char tile_count = tiles_data[ptr++];
 
-    while(i < tile_count) {
+    for (char i=0; i < tile_count; i++) {
         char image_idx = tiles_data[ptr++];
 
         str_size = tiles_data[ptr++];
@@ -186,8 +202,6 @@ void tiles_make_tiles() {
         }
 
         tiles_add_tile(name, image_idx, action_request, status_request);
-
-        i++;
     }
     DEBUG_printf("tiles_make_tiles: end\n");
 }

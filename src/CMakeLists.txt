@@ -18,6 +18,10 @@ set(IP_ADDRESS_FMT "LWIP_MAKEU32(${IP_ADDRESS_FMT})")
 set(IP_GATEWAY_FMT "LWIP_MAKEU32(${IP_GATEWAY_FMT})")
 set(IP_DNS_FMT "LWIP_MAKEU32(${IP_DNS_FMT})")
 
+set(JSON_FILEPATH "${PROJECT_SOURCE_DIR}/config/tiles.json" CACHE STRING "Location of tiles json")
+
+execute_process(COMMAND "${PROJECT_SOURCE_DIR}/tools/json_to_c_array.py" "-f" "${JSON_FILEPATH}" OUTPUT_VARIABLE "TILES_DATA")
+
 target_compile_definitions(badger PRIVATE 
     WIFI_SSID=\"${WIFI_SSID}\"
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
@@ -29,6 +33,7 @@ target_compile_definitions(badger PRIVATE
     IP_ADDRESS=${IP_ADDRESS_FMT}
     IP_GATEWAY=${IP_GATEWAY_FMT}
     IP_DNS=${IP_DNS_FMT}
+    TILES_DATA=${TILES_DATA}
 )
 
 target_sources(badger PRIVATE 

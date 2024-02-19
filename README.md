@@ -3,7 +3,37 @@ Interface for interacting with RESTful APIs on the Badger 2040 W
 
 ![](./media/demo.gif)
 
-# Building
+# Preparing the build environment
+
+Install build requirements:
+
+```shell
+sudo apt update
+sudo apt install cmake gcc-arm-none-eabi build-essential
+```
+
+Install the Pico SDK:
+
+```shell 
+git clone -b master https://github.com/raspberrypi/pico-sdk.git --recursive
+export PICO_SDK_PATH="$(pwd)/pico-sdk"
+```
+
+The `PICO_SDK_PATH` set above will only last the duration of your session.
+
+You should should ensure your `PICO_SDK_PATH` environment variable is set in your profile, e.g `~/.bash_profile`
+
+```shell
+export PICO_SDK_PATH="/path/to/pico-sdk"
+```
+
+## Grab the Pimoroni libraries
+
+```shell
+git clone https://github.com/pimoroni/pimoroni-pico
+```
+
+# Configuration
 
 The following definitions are required to build the project:
 
@@ -23,8 +53,61 @@ Additional definitions have default values that can be overridden:
 | IP_ADDRESS          | 192.168.1.203  | Static IP address to use on network    |
 | IP_GATEWAY          | 192.168.1.1    | Default gateway to use on network      |
 | IP_DNS              | 192.168.1.1    | DNS address to use for name resolution |
+| JSON_FILEPATH       | PROJECT_ROOT/config/tiles.json | JSON file containing tile definitions |
 
 > NOTE: The Pico SDK also requires PICO_BOARD be set to pico_w to build wifi projects
+
+## JSON file
+
+A JSON file is required to render an array of tiles in restfulBadger. It's default location is `PROJECT_ROOT/config/tiles.json`. Each tile consists of:
+
+### Tile
+
+| Key                        | Description                                   |
+|----------------------------|-----------------------------------------------|
+| name                       | Tile name, shown under the tiles icon         |
+| image_idx                  | Index of icon to display from [image_tiles[]](/src/images.h#54) |
+| action_request             | **Optional** Initial HTTP request without response checking   |
+| status_request             | **Optional** Secondary HTTP request with response checking   |
+
+#### Example
+
+```json
+{
+    "name": "office",
+    "image_idx": 0,
+    "action_request": {},
+    "status_request": {}
+}
+```
+
+
+### HTTP Request
+
+| Key                        | Description                                   |
+|----------------------------|-----------------------------------------------|
+| method                     | HTTP method                                   |
+| endpoint                   | HTTP URL Endpoint, appended to API_SERVER     |
+| json_body                  | JSON string to send to the endpoint           |
+| key                        | Key of the value to extract from the HTTP response         |
+| on_value                   | Compared with key value, produces a tick mark |
+| off_value                  | Compared with key value, produces a cross mark |
+
+
+#### Example
+
+```json
+{
+    "method": "POST",
+    "endpoint": "/v2/meross/office",
+    "json_body": "{\"code\": \"status\"}",
+    "key": "onoff",
+    "on_value": "1",
+    "off_value": "0"
+}
+```
+
+# Building 
 
 Clone Repo and cd:
 
@@ -32,6 +115,15 @@ Clone Repo and cd:
 git clone https://github.com/kennedn/restful-badger
 cd restful-badger
 ```
+Configure the JSON file at `PROJECT_ROOT/config/tiles.json`
+
+```bash
+cd config
+vi tiles.json
+cd ..
+```
+
+> NOTE: If **tiles.json** is updated in the future, `cmake ..` must be run from the build directory again to apply any changes
 
 Make build directory and cd:
 
@@ -39,6 +131,7 @@ Make build directory and cd:
 mkdir build
 cd build
 ```
+
 
 Run cmake with definitions:
 

@@ -108,10 +108,11 @@ char tiles_idx_in_bounds(char idx) {
     return idx < tile_array->used;
 }
 
-void tiles_make_str(char **dest, const char *src, char str_size) {
+char tiles_make_str(char **dest, char str_size, const char *src) {
     *dest = (char *)malloc(str_size * sizeof(char) + 1);
     strncpy(*dest, src, str_size);
     (*dest)[str_size] = '\0'; // Null terminate
+    return str_size;
 }
 
 void tiles_make_tiles() {
@@ -132,28 +133,17 @@ void tiles_make_tiles() {
     char tile_count = tiles_data[ptr++];
 
     for (char i=0; i < tile_count; i++) {
+
         char image_idx = tiles_data[ptr++];
-
-        str_size = tiles_data[ptr++];
-        tiles_make_str(&name, (char *)&tiles_data[ptr], str_size);
-        ptr += str_size;
-
+        ptr += tiles_make_str(&name, tiles_data[ptr++], (char *)&tiles_data[ptr]);
         char request_mask = tiles_data[ptr++];
 
         // Action request present
         action_request = NULL;
         if (request_mask & 1) { 
-            str_size = tiles_data[ptr++];
-            tiles_make_str(&method, (char *)&tiles_data[ptr], str_size);
-            ptr +=str_size;
-
-            str_size = tiles_data[ptr++];
-            tiles_make_str(&endpoint, (char *)&tiles_data[ptr], str_size);
-            ptr +=str_size;
-
-            str_size = tiles_data[ptr++];
-            tiles_make_str(&json_body, (char *)&tiles_data[ptr], str_size);
-            ptr +=str_size;
+            ptr += tiles_make_str(&method, tiles_data[ptr++], (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&endpoint, tiles_data[ptr++], (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&json_body, tiles_data[ptr++], (char *)&tiles_data[ptr]);
             
             action_request = restful_make_request_data(
                 method,
@@ -167,29 +157,12 @@ void tiles_make_tiles() {
         // Status request present
         status_request = NULL;
         if (request_mask & 2) { 
-            str_size = tiles_data[ptr++];
-            tiles_make_str(&method, (char *)&tiles_data[ptr], str_size);
-            ptr +=str_size;
-
-            str_size = tiles_data[ptr++];
-            tiles_make_str(&endpoint, (char *)&tiles_data[ptr], str_size);
-            ptr +=str_size;
-
-            str_size = tiles_data[ptr++];
-            tiles_make_str(&json_body, (char *)&tiles_data[ptr], str_size);
-            ptr +=str_size;
-
-            str_size = tiles_data[ptr++];
-            tiles_make_str(&key, (char *)&tiles_data[ptr], str_size);
-            ptr +=str_size;
-
-            str_size = tiles_data[ptr++];
-            tiles_make_str(&on_value, (char *)&tiles_data[ptr], str_size);
-            ptr +=str_size;
-
-            str_size = tiles_data[ptr++];
-            tiles_make_str(&off_value, (char *)&tiles_data[ptr], str_size);
-            ptr +=str_size;
+            ptr += tiles_make_str(&method, tiles_data[ptr++], (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&endpoint, tiles_data[ptr++], (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&json_body, tiles_data[ptr++], (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&key, tiles_data[ptr++], (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&on_value, tiles_data[ptr++], (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&off_value, tiles_data[ptr++], (char *)&tiles_data[ptr]);
 
             status_request = restful_make_request_data(
                 method,

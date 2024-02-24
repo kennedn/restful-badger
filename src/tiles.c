@@ -10,6 +10,7 @@
 #define TILES_MAX 255
 
 TILES *tile_array;
+HEADING **heading_array;
 char tile_column;
 static const char tiles_data[] PROGMEM = {
     TILES_DATA
@@ -42,10 +43,6 @@ void tiles_free() {
 }
 
 void tiles_add_tile(char *name, char image_idx, void *action_request, void *status_request) {
-    if (!name) {
-        DEBUG_printf("tiles_add_tile: invalid parameters\n");
-        return;
-    }
     TILE *tile = (TILE *)malloc(sizeof(TILE));
 
     tile->name = name;
@@ -81,16 +78,20 @@ char tiles_max_column() {
     }
 }
 
-void tiles_previous_column() {
-    tile_column = (tile_column + tiles_max_column() - 1) % tiles_max_column();
+void tiles_previous_column(char count) {
+    tile_column = (tile_column + tiles_max_column() - count) % tiles_max_column();
 }
 
-void tiles_next_column() {
-    tile_column = (tile_column + 1) % tiles_max_column();
+void tiles_next_column(char count) {
+    tile_column = (tile_column + count) % tiles_max_column();
 }
 
 char tiles_get_column() {
     return tile_column;
+}
+
+HEADING *tiles_get_heading() {
+    return heading_array[tile_column];
 }
 
 void tiles_set_column(char column) {
@@ -121,6 +122,8 @@ void tiles_make_tiles() {
 
     RESTFUL_REQUEST_DATA *action_request;
     RESTFUL_REQUEST_DATA *status_request;
+    HEADING *heading;
+    char *heading_str;
     char *name;
     char *method;
     char *endpoint;
@@ -128,14 +131,39 @@ void tiles_make_tiles() {
     char *key;
     char *on_value;
     char *off_value;
-    char str_size = 0;
     int ptr = 0;
-    char tile_count = tiles_data[ptr++];
 
+    char heading_count = tiles_data[ptr++];
+    heading_array = (HEADING **)malloc(heading_count * sizeof(HEADING *));
+    for (char i=0; i < heading_count; i++) {
+        heading = (HEADING *)malloc(sizeof(HEADING));
+        char str_size = tiles_data[ptr++];
+
+        if (str_size == 0) {
+            // This is a padding tile
+            heading->heading = NULL;
+            heading->icon = 0;
+            heading_array[i] = heading;
+            continue;
+        }
+
+        ptr += tiles_make_str(&(heading->heading), str_size, (char *)&tiles_data[ptr]);
+        heading->icon = (char *)image_icons[tiles_data[ptr++]];
+        heading_array[i] = heading;
+    }
+
+    char tile_count = tiles_data[ptr++];
     for (char i=0; i < tile_count; i++) {
+        char str_size = tiles_data[ptr++];
+
+        if (str_size == 0) {
+            // This is a padding tile
+            tiles_add_tile(NULL, 0, NULL, NULL);
+            continue;
+        }
+        ptr += tiles_make_str(&name, str_size, (char *)&tiles_data[ptr]);
 
         char image_idx = tiles_data[ptr++];
-        ptr += tiles_make_str(&name, tiles_data[ptr++], (char *)&tiles_data[ptr]);
         char request_mask = tiles_data[ptr++];
 
         // Action request present

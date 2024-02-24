@@ -83,9 +83,11 @@ void restful_callback(char *value, int status_code, void *arg) {
     } else if(value) {
         draw_tiles(tile->name, image_indicator_question);
     }
-    draw_status_bar();
-    badger.update();
     restful_free_request(request);
+    draw_status_bar();
+    badger.uc8151->set_update_speed(3);
+    badger.update();
+    badger.uc8151->set_update_speed(2);
 }
 
 int64_t halt_timeout_callback(alarm_id_t id, void *arg) {
@@ -147,19 +149,32 @@ void wifi_wait() {
     }
 }
 
-void wait_for_button_press_release() {
+char wait_for_button_press_release() {
     uint32_t mask = (1UL << badger.A) | (1UL << badger.B) | (1UL << badger.C) | (1UL << badger.UP) | (1UL << badger.DOWN);
-    // Wait for button press
-    while(!(gpio_get_all() & mask)) {
-        tight_loop_contents();
+    uint32_t sw_timer = to_ms_since_boot(get_absolute_time());
+    char counter = 0;
+    uint32_t last_state = gpio_get_all() & mask;
+    while (true) {
+        // Wait for button press
+        while(!(gpio_get_all() & mask)) {
+            // Allow a grace period before returning to record subsequent clicks
+            if (counter > 0 && (to_ms_since_boot(get_absolute_time()) - sw_timer) > MULTI_CLICK_WAIT_MS) {
+                return counter;
+            }
+        }
+        sw_timer = to_ms_since_boot(get_absolute_time());
+        counter++;
+        last_state = gpio_get_all() & mask;
+        badger.update_button_states();
+        badger.led(0);
+
+        // Wait for button release
+        while((gpio_get_all() & mask)) {
+            tight_loop_contents();
+        }
+
+        badger.led(255);
     }
-    badger.update_button_states();
-    badger.led(0);
-    // Wait for button release
-    while((gpio_get_all() & mask)) {
-        tight_loop_contents();
-    }
-    badger.led(255);
 }
 
 void draw_status_bar() {
@@ -171,15 +186,17 @@ void draw_status_bar(bool sleep) {
     float voltage;
     char powerPercent;
     char percentStr[5];
-    char clock_str[9];
-    char x_offset = 0;
+    char clock_str[12];
+    char *heading_str;
+    char status_x_offset = 0;
     char x_pad = 4;
     int32_t clock_x_offset;
     uint8_t *wifi_image = (uint8_t *)image_status_wifi_on;
     uint8_t *battery_image = (uint8_t *)image_status_battery_charging;
+    uint8_t *heading_icon = NULL;
     if (!power_is_charging()) {
         battery_image = (uint8_t *)image_status_battery_discharging;
-        x_offset = 22;
+        status_x_offset = 22;
 
         power_voltage(&voltage);
         powerPercent = power_percent(&voltage);
@@ -188,13 +205,14 @@ void draw_status_bar(bool sleep) {
 
     if(sleep) {
         wifi_image = (uint8_t *)image_status_sleeping;
-        sprintf(clock_str, "Sleeping\n");
+        sprintf(clock_str, "Sleeping");
     } else {
         if(!wifi_up()) {
             wifi_image = (uint8_t *)image_status_wifi_off;
         }
         rtc_get_datetime(&datetime);
         sprintf(clock_str, "%02d:%02d\n", datetime.hour, datetime.min);
+        heading_icon = (uint8_t *)tiles_get_heading()->icon;
     }
     clock_x_offset = badger.graphics->measure_text(clock_str, 2.0f) / 2;
 
@@ -202,34 +220,73 @@ void draw_status_bar(bool sleep) {
     badger.graphics->rectangle(Rect(0, 0, WIDTH, 20));
 
     badger.graphics->set_pen(15);
-    badger.graphics->text("restfulBadger", Point(4, 6), WIDTH, 1.0);
     badger.graphics->text(clock_str, Point(WIDTH / 2 - clock_x_offset, 3), WIDTH, 2.0f);
-    badger.image(battery_image, Rect(WIDTH - x_offset - (image_status_size + x_pad), 2, image_status_size, image_status_size));
-    badger.image(wifi_image, Rect(WIDTH - x_offset - (image_status_size + x_pad) * 2, 2, image_status_size, image_status_size));
+
+    if (heading_icon) {
+        badger.graphics->text(tiles_get_heading()->heading, Point(image_status_size + x_pad * 2, 2), WIDTH, 2.0f);
+        badger.image(heading_icon, Rect(x_pad, 2, image_status_size, image_status_size));
+    } else {
+        badger.graphics->text("restfulBadger", Point(x_pad, 6), WIDTH, 1.0f);
+    }
+    badger.image(battery_image, Rect(WIDTH - status_x_offset - (image_status_size + x_pad), 2, image_status_size, image_status_size));
+    badger.image(wifi_image, Rect(WIDTH - status_x_offset - (image_status_size + x_pad) * 2, 2, image_status_size, image_status_size));
     if (!power_is_charging()) {
         badger.graphics->set_pen(15);
-        badger.graphics->text(percentStr, Point(WIDTH - x_offset, 6), WIDTH, 1.0);
-        badger.graphics->rectangle(Rect(WIDTH - x_offset - (image_status_size + x_pad) + 2, 7, powerPercent / 10 + 1, 6));
+        badger.graphics->text(percentStr, Point(WIDTH - status_x_offset, 6), WIDTH, 1.0);
+        badger.graphics->rectangle(Rect(WIDTH - status_x_offset - (image_status_size + x_pad) + 2, 7, powerPercent / 10 + 1, 6));
     }
 }
 
 void draw_tiles(const char *name, const char *indicator_icon) {
     char tiles_base_idx = tiles_get_base_idx();
     char tile_pad_x = WIDTH / 3;
-    char tile_pad_y = 32;
+    char tile_pad_y = 26;
     char tile_offset = 18;
     char column_pad_y = 10;
     char indicator_offset = 44;
-    char text_offset = 8;
+    char text_offset = 10;
     for(char i=0; i< 3; i++) {
         if (!tiles_idx_in_bounds(tiles_base_idx + i)) {
             break;
         } 
         TILE *tile = tile_array->tiles[tiles_base_idx + i];
+        if (!tile->image || !tile->name) { // Probably a padding tile
+            continue;
+        }
         badger.image((const uint8_t *)tile->image, Rect(tile_offset + (tile_pad_x*i), tile_pad_y, image_tile_size, image_tile_size));
         badger.graphics->set_pen(0);
-        int32_t name_x_offset = (tile_pad_x - badger.graphics->measure_text(tile->name, 2.0f)) /2 ;
-        badger.graphics->text(tile->name, Point((tile_pad_x*i) + name_x_offset, tile_pad_y + image_tile_size + text_offset), WIDTH, 2);
+
+
+        // Determine the true width of the string if a wrap point exists
+        int32_t name_size = badger.graphics->measure_text(tile->name, 2.0f);
+        int32_t prev_name_size = name_size;
+        if (name_size > image_tile_size) {
+            char *space_ptr = tile->name;
+            char has_wrap = false;
+            while (true) {
+                space_ptr = strchr(space_ptr, ' ');
+                if (space_ptr == NULL) {
+                    break;
+                }
+                has_wrap = true;
+                *space_ptr = '\0';
+                name_size = badger.graphics->measure_text(tile->name, 2.0f);
+                *space_ptr = ' ';
+                space_ptr++;    // Move past space character for next iteration
+                if (name_size > image_tile_size) {
+                    name_size = prev_name_size;
+                    break;
+                }
+                prev_name_size = name_size;
+            }
+
+            if (has_wrap) {
+                text_offset = 4;    // Correct y offset for multiple lines
+            }
+        }
+        int32_t name_x_offset = (tile_pad_x - name_size) /2 ;
+
+        badger.graphics->text(tile->name, Point((tile_pad_x*i) + name_x_offset, tile_pad_y + image_tile_size + text_offset), image_tile_size, 2);
         if(!strcmp(name, tile->name)) {
             badger.image((const uint8_t *)indicator_icon, 
                 Rect(tile_offset + (tile_pad_x*i) + indicator_offset, tile_pad_y + indicator_offset, image_indicator_size, image_indicator_size));
@@ -312,9 +369,9 @@ int main() {
     // If the user pressed up or down to wake we can move the column once for free before the main loop
     if(badger.pressed_to_wake(badger.UP) || badger.pressed_to_wake(badger.DOWN)) {
         if (badger.pressed_to_wake(badger.UP)) {
-            tiles_previous_column();
+            tiles_previous_column(1);
         } else {
-            tiles_next_column();
+            tiles_next_column(1);
         }
         badger.pcf85063a->set_byte(tiles_get_column()+1);
         badger.graphics->set_pen(15);
@@ -329,7 +386,7 @@ int main() {
     while(true) {
         halt_timeout_id = rearm_halt_timeout(halt_timeout_id);
         // Wait for button press
-        wait_for_button_press_release();
+        char click_count = wait_for_button_press_release();
 
         char tiles_base_idx = tiles_get_base_idx();
         TILE *tile;
@@ -350,16 +407,15 @@ int main() {
             tile = tile_array->tiles[tiles_base_idx + 2];
         } else if(badger.pressed(badger.UP) || badger.pressed(badger.DOWN)) {
             if (badger.pressed(badger.UP)) {
-                tiles_previous_column();
+                tiles_previous_column(click_count);
             } else {
-                tiles_next_column();
+                tiles_next_column(click_count);
             }
             badger.pcf85063a->set_byte(tiles_get_column()+1);
             badger.graphics->set_pen(15);
             badger.graphics->clear();
             draw_tiles(NULL, NULL);
             draw_status_bar();
-            badger.uc8151->busy_wait();
             badger.update();
             continue;
         } else {
@@ -377,7 +433,11 @@ int main() {
             (RESTFUL_REQUEST_DATA *)(tile->status_request),
             restful_callback
         );
-        restful_request(request);
+
+        if(request) {
+            restful_request(request);
+        }
+
     }
     deinit();
     return 0;

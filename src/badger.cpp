@@ -174,6 +174,7 @@ char wait_for_button_press_release() {
         }
 
         badger.led(255);
+        sleep_ms(20);    // debounce
     }
 }
 
@@ -223,7 +224,7 @@ void draw_status_bar(bool sleep) {
     badger.graphics->text(clock_str, Point(WIDTH / 2 - clock_x_offset, 3), WIDTH, 2.0f);
 
     if (heading_icon) {
-        badger.graphics->text(tiles_get_heading()->heading, Point(image_status_size + x_pad * 2, 2), WIDTH, 2.0f);
+        badger.graphics->text(tiles_get_heading()->heading, Point(image_status_size + x_pad * 2, 3), WIDTH, 2.0f);
         badger.image(heading_icon, Rect(x_pad, 2, image_status_size, image_status_size));
     } else {
         badger.graphics->text("restfulBadger", Point(x_pad, 6), WIDTH, 1.0f);

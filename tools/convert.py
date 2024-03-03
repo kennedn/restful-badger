@@ -13,7 +13,7 @@ Output to py functionality is borrwed from data_to_py.py, Copyright (c) 2016 Pet
 
 import io
 import argparse
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image
 from pathlib import Path
 
 
@@ -80,13 +80,7 @@ class ByteWriter(object):
 def convert_image(img):
     if options.resize:
         img = img.resize((296, 128))  # resize
-    try:
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(2.0)
-    except ValueError:
-        pass
-    img = img.convert("1")  # convert to black and white
-    # img = ImageOps.invert(img)
+    img = img.convert('L').point(lambda x: 255 if x > 140 else 0, mode='1')
     return img
 
 

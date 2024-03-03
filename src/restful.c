@@ -79,6 +79,9 @@ RESTFUL_REQUEST_DATA *restful_make_request_data(char *method, char *endpoint, ch
  }
 
 void restful_free_request_data(RESTFUL_REQUEST_DATA *request) {
+    if (!request) {
+        return;
+    }
     free(request->method);
     free(request->endpoint);
     free(request->json_body);

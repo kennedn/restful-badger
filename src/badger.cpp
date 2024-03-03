@@ -4,6 +4,7 @@
 #include "pico/cyw43_arch.h"
 #include "pico/platform.h"
 #include "pico/stdlib.h"
+#include "hardware/pwm.h"
 #include "pico/util/datetime.h"
 
 extern "C" {
@@ -34,10 +35,12 @@ datetime_t ntp_daily_alarm = datetime_t{
     .sec = 00};
 
 static volatile bool ntp_time_set = false;
+static volatile bool halt_initiated = false;
+static volatile bool initialised = false;
 void draw_status_bar();
 void draw_status_bar(bool sleep);
 void draw_tiles(const char *name, const char *indicator_icon);
-void deinit();
+void deinit(bool update_display=false);
 
 void ntp_callback(datetime_t *datetime, void *arg) {
     if (datetime == NULL) {
@@ -85,17 +88,16 @@ void restful_callback(char *value, int status_code, void *arg) {
     }
     restful_free_request(request);
     draw_status_bar();
-    badger.uc8151->set_update_speed(3);
+    if (initialised) {
+        badger.uc8151->set_update_speed(3);
+    }
     badger.update();
+    initialised = true;
     badger.uc8151->set_update_speed(2);
 }
 
 int64_t halt_timeout_callback(alarm_id_t id, void *arg) {
-    draw_status_bar(true);
-    draw_tiles(NULL, NULL);
-    badger.update();
-    badger.uc8151->busy_wait();
-    deinit();
+    halt_initiated = true;
     return 0;
 }
 
@@ -153,10 +155,13 @@ char wait_for_button_press_release() {
     uint32_t mask = (1UL << badger.A) | (1UL << badger.B) | (1UL << badger.C) | (1UL << badger.UP) | (1UL << badger.DOWN);
     uint32_t sw_timer = to_ms_since_boot(get_absolute_time());
     char counter = 0;
-    uint32_t last_state = gpio_get_all() & mask;
     while (true) {
         // Wait for button press
         while(!(gpio_get_all() & mask)) {
+            // timer callback has asked for a halt
+            if (halt_initiated) {
+                deinit(true);
+            }
             // Allow a grace period before returning to record subsequent clicks
             if (counter > 0 && (to_ms_since_boot(get_absolute_time()) - sw_timer) > MULTI_CLICK_WAIT_MS) {
                 return counter;
@@ -164,7 +169,6 @@ char wait_for_button_press_release() {
         }
         sw_timer = to_ms_since_boot(get_absolute_time());
         counter++;
-        last_state = gpio_get_all() & mask;
         badger.update_button_states();
         badger.led(0);
 
@@ -224,7 +228,7 @@ void draw_status_bar(bool sleep) {
     badger.graphics->text(clock_str, Point(WIDTH / 2 - clock_x_offset, 3), WIDTH, 2.0f);
 
     if (heading_icon) {
-        badger.graphics->text(tiles_get_heading()->heading, Point(image_status_size + x_pad * 2, 3), WIDTH, 2.0f);
+        badger.graphics->text(tiles_get_heading()->heading, Point(image_status_size + x_pad * 2, 2), WIDTH, 2.0f);
         badger.image(heading_icon, Rect(x_pad, 2, image_status_size, image_status_size));
     } else {
         badger.graphics->text("restfulBadger", Point(x_pad, 6), WIDTH, 1.0f);
@@ -310,7 +314,7 @@ void draw_tiles(const char *name, const char *indicator_icon) {
     }
 }
 
-void init() {
+bool init() {
     badger.init();
     badger.led(255);
 
@@ -320,7 +324,8 @@ void init() {
 
     if (cyw43_arch_init()) {
         DEBUG_printf("failed to initialise\n");
-        return;
+        deinit(true);
+        return false;
     }
     cyw43_arch_enable_sta_mode();
 
@@ -332,18 +337,7 @@ void init() {
 
     badger.graphics->set_pen(15);
     badger.graphics->clear();
-}
 
-void deinit() {
-    // cyw43_arch_deinit();
-    badger.led(0);
-    badger.halt();
-}
-
-
-int main() {
-    init();
-    tiles_make_tiles();
     // External RTC has 1 free byte, we can use this to store the current column and retrieve at reboot
     // This limits the max num of columns to 2^8 - 2, since 0 is being used here to signal that the RTC is not initialised
     uint8_t rtc_byte = badger.pcf85063a->get_byte();
@@ -357,8 +351,8 @@ int main() {
 
         // If we were woken by the RTC alarm, just go back to sleep
         if (badger.pressed_to_wake(badger.RTC)) {
-            deinit();
-            return 0;
+            deinit(false);
+            return false;
         }
         
         // Set the external RTC free byte so we can later determine if it has been initalized
@@ -366,28 +360,46 @@ int main() {
     } else {
         retrieve_time(false);
     }
+    return true;
+}
 
-    // If the user pressed up or down to wake we can move the column once for free before the main loop
-    if(badger.pressed_to_wake(badger.UP) || badger.pressed_to_wake(badger.DOWN)) {
-        if (badger.pressed_to_wake(badger.UP)) {
-            tiles_previous_column(1);
-        } else {
-            tiles_next_column(1);
-        }
-        badger.pcf85063a->set_byte(tiles_get_column()+1);
-        badger.graphics->set_pen(15);
-        badger.graphics->clear();
-    } 
+void deinit(bool update_display) {
+    if (update_display) {
+        draw_status_bar(true);
+        draw_tiles(NULL, NULL);
+        badger.update();
+        badger.uc8151->busy_wait();
+    }
+    cyw43_arch_deinit();
+    tiles_free();
+    badger.led(0);
+    badger.halt();
+}
 
-    draw_tiles(NULL, NULL);
-    draw_status_bar();
-    badger.update();
+
+int main() {
+    // Configure Enable_3v3 & LED now instead of in badger.init()
+    gpio_set_function(badger.ENABLE_3V3, GPIO_FUNC_SIO);
+    gpio_set_dir(badger.ENABLE_3V3, GPIO_OUT);
+    gpio_put(badger.ENABLE_3V3, 1);
+
+    pwm_config cfg = pwm_get_default_config();
+    pwm_set_wrap(pwm_gpio_to_slice_num(badger.LED), 65535);
+    pwm_init(pwm_gpio_to_slice_num(badger.LED), &cfg, true);
+    gpio_set_function(badger.LED, GPIO_FUNC_PWM);
 
     alarm_id_t halt_timeout_id = -1;
     while(true) {
         halt_timeout_id = rearm_halt_timeout(halt_timeout_id);
         // Wait for button press
         char click_count = wait_for_button_press_release();
+
+        if (!initialised) {
+            if (!init()) {
+                return 0;
+            }
+            tiles_make_tiles();
+        }
 
         char tiles_base_idx = tiles_get_base_idx();
         TILE *tile;
@@ -418,6 +430,7 @@ int main() {
             draw_tiles(NULL, NULL);
             draw_status_bar();
             badger.update();
+            initialised = true;
             continue;
         } else {
             // How did we get here?
@@ -426,6 +439,7 @@ int main() {
 
         // User triggered a HTTP request, so we must wait for wifi if its not up yet
         wifi_wait();
+
 
         RESTFUL_REQUEST *request = restful_make_request(
             tile,
@@ -440,6 +454,5 @@ int main() {
         }
 
     }
-    deinit();
     return 0;
 }

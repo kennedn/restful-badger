@@ -2,7 +2,7 @@ add_executable(badger)
 
 # Default definitions
 set(NTP_SERVER "pool.ntp.org" CACHE STRING "Specify the NTP server")
-set(IP_ADDRESS "192.168.1.203" CACHE STRING "Specify IP Address")
+set(IP_ADDRESS "192.168.1.204" CACHE STRING "Specify IP Address")
 set(IP_GATEWAY "192.168.1.1" CACHE STRING "Specify IP Gateway")
 set(IP_DNS "192.168.1.1" CACHE STRING "Specify IP DNS")
 
@@ -35,14 +35,10 @@ target_compile_definitions(badger PRIVATE
     IP_DNS=${IP_DNS_FMT}
     TILES_DATA=${TILES_DATA}
 )
+add_subdirectory(modules)
 
 target_sources(badger PRIVATE 
     badger.cpp 
-    power.c 
-    ntp.c
-    http.c 
-    restful.c
-    tiles.c
 )
 
 target_include_directories(badger PRIVATE

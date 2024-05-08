@@ -80,7 +80,7 @@ class ByteWriter(object):
 def convert_image(img):
     if options.resize:
         img = img.resize((296, 128))  # resize
-    img = img.convert('L').point(lambda x: 255 if x > 140 else 0, mode='1')
+    img = img.convert('L').point(lambda x: 255 if x > 200 else 0, mode='1')
     return img
 
 

@@ -8,12 +8,13 @@
 #include "pico/util/datetime.h"
 
 extern "C" {
-#include "http.h"
-#include "images.h"
-#include "ntp.h"
-#include "power.h"
-#include "restful.h"
-#include "tiles.h"
+#include "modules/http.h"
+#include "modules/images.h"
+#include "modules/ntp.h"
+#include "modules/power.h"
+#include "modules/restful.h"
+#include "modules/tiles.h"
+#include "modules/piezo.h"
 }
 
 #include "badger.h"
@@ -34,9 +35,12 @@ datetime_t ntp_daily_alarm = datetime_t{
     .min = 00,
     .sec = 00};
 
+int request_buttons[] = {badger.A, badger.B, badger.C};
+
 static volatile bool ntp_time_set = false;
 static volatile bool halt_initiated = false;
 static volatile bool initialised = false;
+
 void draw_status_bar();
 void draw_status_bar(bool sleep);
 void draw_tiles(const char *name, const char *indicator_icon);
@@ -81,8 +85,10 @@ void restful_callback(char *value, int status_code, void *arg) {
     DEBUG_printf("restful_callback: value=%s, status_code=%d, caller=%s\n", value ? value : "NULL", status_code, tile->name);
     if (value && !strcmp(request->status_request->on_value, value)) {
         draw_tiles(tile->name, image_indicator_tick);
+        // piezo_play(piezo_notes_pong, piezo_notes_pong_len);
     } else if(value && !strcmp(request->status_request->off_value, value)) {
         draw_tiles(tile->name, image_indicator_cross);
+        // piezo_play(piezo_notes_pong_2, piezo_notes_pong_2_len);
     } else if(value) {
         draw_tiles(tile->name, image_indicator_question);
     }
@@ -92,6 +98,7 @@ void restful_callback(char *value, int status_code, void *arg) {
         badger.uc8151->set_update_speed(3);
     }
     badger.update();
+    badger.uc8151->busy_wait();
     initialised = true;
     badger.uc8151->set_update_speed(2);
 }
@@ -102,6 +109,16 @@ int64_t halt_timeout_callback(alarm_id_t id, void *arg) {
 }
 
 
+bool datetime_is_sane(datetime_t *datetime) {
+    if (datetime->year < 0 || datetime->month > 4095) { return false; }
+    if (datetime->month < 1 || datetime->day > 12) { return false; }
+    if (datetime->day < 1 || datetime->day > 31) { return false; }
+    if (datetime->dotw < 0 || datetime->dotw > 6) { return false; }
+    if (datetime->hour < 0 || datetime->hour > 23) { return false; }
+    if (datetime->min < 0 || datetime->min > 59) { return false; }
+    if (datetime->sec < 0 || datetime->sec > 59) { return false; }
+    return true;
+}
 
 void retrieve_time(bool from_ntp) {
     ntp_time_set = false;
@@ -117,6 +134,11 @@ void retrieve_time(bool from_ntp) {
         DEBUG_printf("Retrieving time from RTC\n");
         // Retrieve stored time from external RTC
         datetime_t datetime = badger.pcf85063a->get_datetime();
+        if (!datetime_is_sane(&datetime)) {
+            DEBUG_printf("RTC time is insane, triggering NTP retrieval\n");
+            retrieve_time(true);
+            return;
+        }
         // Store time in internal RTC
         rtc_set_datetime(&datetime);
     }
@@ -143,6 +165,9 @@ bool wifi_up() {
 void wifi_wait() {
     uint32_t sw_timer = 0;
     while(!wifi_up()) {
+        if (halt_initiated) {
+            deinit(initialised);
+        }
         // Retry wifi connect if link status is in error
         if ((sw_timer == 0 || (to_ms_since_boot(get_absolute_time()) - sw_timer) > WIFI_STATUS_POLL_MS) && cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA) <= 0) {
             wifi_connect_async();
@@ -160,7 +185,7 @@ char wait_for_button_press_release() {
         while(!(gpio_get_all() & mask)) {
             // timer callback has asked for a halt
             if (halt_initiated) {
-                deinit(true);
+                deinit(initialised);
             }
             // Allow a grace period before returning to record subsequent clicks
             if (counter > 0 && (to_ms_since_boot(get_absolute_time()) - sw_timer) > MULTI_CLICK_WAIT_MS) {
@@ -177,6 +202,12 @@ char wait_for_button_press_release() {
             tight_loop_contents();
         }
 
+        if (badger.pressed(badger.UP) || badger.pressed(badger.DOWN)) { 
+            // piezo_play(piezo_notes_test_1, piezo_notes_test_1_len);
+            // piezo_play(piezo_notes_test_4, piezo_notes_test_4_len);
+        } else {
+            // piezo_play(piezo_notes_ping, piezo_notes_ping_len);
+        }
         badger.led(255);
         sleep_ms(20);    // debounce
     }
@@ -265,7 +296,7 @@ void draw_tiles(const char *name, const char *indicator_icon) {
         // Determine the true width of the string if a wrap point exists
         int32_t name_size = badger.graphics->measure_text(tile->name, 2.0f);
         int32_t prev_name_size = name_size;
-        if (name_size > image_tile_size) {
+        if (name_size > tile_pad_x) {
             char *space_ptr = tile->name;
             char has_wrap = false;
             while (true) {
@@ -278,7 +309,7 @@ void draw_tiles(const char *name, const char *indicator_icon) {
                 name_size = badger.graphics->measure_text(tile->name, 2.0f);
                 *space_ptr = ' ';
                 space_ptr++;    // Move past space character for next iteration
-                if (name_size > image_tile_size) {
+                if (name_size > tile_pad_x) {
                     name_size = prev_name_size;
                     break;
                 }
@@ -291,7 +322,7 @@ void draw_tiles(const char *name, const char *indicator_icon) {
         }
         int32_t name_x_offset = (tile_pad_x - name_size) /2 ;
 
-        badger.graphics->text(tile->name, Point((tile_pad_x*i) + name_x_offset, tile_pad_y + image_tile_size + text_offset), image_tile_size, 2);
+        badger.graphics->text(tile->name, Point((tile_pad_x*i) + name_x_offset, tile_pad_y + image_tile_size + text_offset), tile_pad_x, 2);
         if(!strcmp(name, tile->name)) {
             badger.image((const uint8_t *)indicator_icon, 
                 Rect(tile_offset + (tile_pad_x*i) + indicator_offset, tile_pad_y + indicator_offset, image_indicator_size, image_indicator_size));
@@ -306,26 +337,24 @@ void draw_tiles(const char *name, const char *indicator_icon) {
     for (char i=0; i < max_col; i++) {
         badger.graphics->set_pen(0);
         char y = column_pad_y + (HEIGHT / 2) - (max_col * 10 / 2) + (i * 10);
-        badger.graphics->rectangle(Rect(WIDTH - 10, y, 8, 8)); 
+        badger.graphics->rectangle(Rect(WIDTH - 10, y, 20, 8)); 
         if (current_col != i) {
             badger.graphics->set_pen(15);
-            badger.graphics->rectangle(Rect(WIDTH - 10 + 1, y + 1, 6, 6)); 
+            badger.graphics->rectangle(Rect(WIDTH - 10 + 1, y + 1, 18, 6)); 
         }
     }
 }
 
-bool init() {
+void init() {
     badger.init();
     badger.led(255);
 
-    stdio_init_all();
     adc_init();
     rtc_init();
 
     if (cyw43_arch_init()) {
         DEBUG_printf("failed to initialise\n");
         deinit(true);
-        return false;
     }
     cyw43_arch_enable_sta_mode();
 
@@ -352,7 +381,6 @@ bool init() {
         // If we were woken by the RTC alarm, just go back to sleep
         if (badger.pressed_to_wake(badger.RTC)) {
             deinit(false);
-            return false;
         }
         
         // Set the external RTC free byte so we can later determine if it has been initalized
@@ -360,17 +388,19 @@ bool init() {
     } else {
         retrieve_time(false);
     }
-    return true;
 }
 
 void deinit(bool update_display) {
+    DEBUG_printf("Going to sleep zZzZ\n");
     if (update_display) {
         draw_status_bar(true);
         draw_tiles(NULL, NULL);
         badger.update();
         badger.uc8151->busy_wait();
     }
-    cyw43_arch_deinit();
+    if(initialised) {
+        cyw43_arch_deinit();
+    }
     tiles_free();
     badger.led(0);
     badger.halt();
@@ -378,7 +408,10 @@ void deinit(bool update_display) {
 
 
 int main() {
-    // Configure Enable_3v3 & LED now instead of in badger.init()
+    // Calling the full init here is too slow if we want to catch button presses from wake, so instead
+    // Only configure crucial stuff for now e.g Enable_3v3, LED & check RTC
+
+    stdio_init_all();
     gpio_set_function(badger.ENABLE_3V3, GPIO_FUNC_SIO);
     gpio_set_dir(badger.ENABLE_3V3, GPIO_OUT);
     gpio_put(badger.ENABLE_3V3, 1);
@@ -388,6 +421,13 @@ int main() {
     pwm_init(pwm_gpio_to_slice_num(badger.LED), &cfg, true);
     gpio_set_function(badger.LED, GPIO_FUNC_PWM);
 
+    gpio_set_function(badger.RTC, GPIO_FUNC_SIO);
+    gpio_set_dir(badger.RTC, GPIO_IN);
+    gpio_set_pulls(badger.RTC, false, true);
+    if (gpio_get_all() & 1 << badger.RTC) {
+        init();
+    }
+
     alarm_id_t halt_timeout_id = -1;
     while(true) {
         halt_timeout_id = rearm_halt_timeout(halt_timeout_id);
@@ -395,30 +435,15 @@ int main() {
         char click_count = wait_for_button_press_release();
 
         if (!initialised) {
-            if (!init()) {
-                return 0;
-            }
+            piezo_play(piezo_notes_test_4, piezo_notes_test_4_len, false);
+            init();
             tiles_make_tiles();
         }
 
         char tiles_base_idx = tiles_get_base_idx();
-        TILE *tile;
-        if (badger.pressed(badger.A)) {
-            if (!tiles_idx_in_bounds(tiles_base_idx)) {
-                continue;
-            }
-            tile = tile_array->tiles[tiles_base_idx];
-        } else if(badger.pressed(badger.B)) {
-            if (!tiles_idx_in_bounds(tiles_base_idx + 1)) {
-                continue;
-            }
-            tile = tile_array->tiles[tiles_base_idx + 1];
-        } else if(badger.pressed(badger.C)) {
-            if (!tiles_idx_in_bounds(tiles_base_idx + 2)) {
-                continue;
-            }
-            tile = tile_array->tiles[tiles_base_idx + 2];
-        } else if(badger.pressed(badger.UP) || badger.pressed(badger.DOWN)) {
+
+        TILE *tile = NULL; 
+        if(badger.pressed(badger.UP) || badger.pressed(badger.DOWN)) {
             if (badger.pressed(badger.UP)) {
                 tiles_previous_column(click_count);
             } else {
@@ -431,27 +456,37 @@ int main() {
             draw_status_bar();
             badger.update();
             initialised = true;
-            continue;
         } else {
-            // How did we get here?
+            for(int i=0; i <  count_of(request_buttons); i++) {
+                if (!badger.pressed(request_buttons[i])) {
+                    continue;
+                }
+                if (tiles_idx_in_bounds(tiles_base_idx + i)) {
+                    tile = tile_array->tiles[tiles_base_idx + i];
+                } 
+            }
+        }
+
+        if (!tile) {
             continue;
         }
 
         // User triggered a HTTP request, so we must wait for wifi if its not up yet
-        wifi_wait();
+        if (!wifi_up()) {
+            if (!initialised) {
+                piezo_play(piezo_notes_test_3, piezo_notes_test_3_len, true);
+            }
+            wifi_wait();
+            piezo_stop();
+        }
 
-
-        RESTFUL_REQUEST *request = restful_make_request(
+        restful_request(restful_make_request(
             tile,
             tile_array->base_url,
             (RESTFUL_REQUEST_DATA *)(tile->action_request),
             (RESTFUL_REQUEST_DATA *)(tile->status_request),
-            restful_callback
+            restful_callback)
         );
-
-        if(request) {
-            restful_request(request);
-        }
 
     }
     return 0;

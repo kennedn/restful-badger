@@ -21,6 +21,8 @@
         "span": "cpp",
         "charconv": "cpp",
         "chrono": "cpp",
-        "cstdint": "cpp"
+        "cstdint": "cpp",
+        "compare": "cpp",
+        "pwm.h": "c"
     }
 }

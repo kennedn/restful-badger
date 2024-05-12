@@ -3,7 +3,6 @@
 # This can be dropped into an external project to help locate this SDK
 # It should be include()ed prior to project()
 
-set(PICO_SDK_PATH "/home/kennedn/Projects/pico-sdk" CACHE PATH "Path to the Raspberry Pi Pico SDK" FORCE)
 set(PICO_SDK_FETCH_FROM_GIT "${PICO_SDK_FETCH_FROM_GIT}" CACHE BOOL "Set to ON to fetch copy of SDK from git if not otherwise locatable")
 set(PICO_SDK_FETCH_FROM_GIT_PATH "${PICO_SDK_FETCH_FROM_GIT_PATH}" CACHE FILEPATH "location to download SDK")
 

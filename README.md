@@ -27,13 +27,16 @@ You should should ensure your `PICO_SDK_PATH` environment variable is set in you
 export PICO_SDK_PATH="/path/to/pico-sdk"
 ```
 
-## Grab the Pimoroni libraries
+## Grab my fork of the Pimoroni libraries
 
 ```shell
-git clone https://github.com/pimoroni/pimoroni-pico
+git clone https://github.com/kennedn/pimoroni-pico /path/to/pimoroni-pico
+export PIMORONI_PICO_PATH="/path/to/pimoroni-pico"
 ```
 
 # Configuration
+
+> NOTE: As much WIFI information as possible is specified at compile time in an effort to reduce wifi connect times since these occur each time the device wakes up
 
 The following definitions are required to build the project:
 
@@ -136,7 +139,13 @@ cd build
 Run cmake with definitions:
 
 ```bash
-cmake .. -DPICO_BOARD=pico_w -DWIFI_SSID="cool-wifi-ssid" -DWIFI_PASSWORD="cool-wifi-password" -DWIFI_BSSID=66:55:44:33:22:11 -DWIFI_CHANNEL=9 -DAPI_SERVER="api.cool.com"
+cmake .. \
+  -DPICO_BOARD=pico_w \
+  -DWIFI_SSID="cool-wifi-ssid" \
+  -DWIFI_PASSWORD="cool-wifi-password" \
+  -DWIFI_BSSID=66:55:44:33:22:11 \
+  -DWIFI_CHANNEL=9 \
+  -DAPI_SERVER="api.cool.com"
 ```
 
 Cd to src folder and make:

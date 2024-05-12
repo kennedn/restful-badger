@@ -97,6 +97,7 @@ void restful_callback(char *value, int status_code, void *arg) {
     if (initialised) {
         badger.uc8151->set_update_speed(3);
     }
+
     badger.update();
     badger.uc8151->busy_wait();
     initialised = true;
@@ -155,7 +156,7 @@ alarm_id_t rearm_halt_timeout(alarm_id_t id) {
 void wifi_connect_async() {
     // Use cyw43_wifi_join so that wifi channel can be specified. This shaves ~700ms of connection time, static IP / disable DNS in lwipopts.h shaves ~800ms too
     cyw43_wifi_join(&cyw43_state, strlen(WIFI_SSID), (const uint8_t *)WIFI_SSID, strlen(WIFI_PASSWORD),
-                    (const uint8_t *)WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, WIFI_BSSID, WIFI_CHANNEL);
+                    (const uint8_t *)WIFI_PASSWORD, CYW43_AUTH_WPA2_MIXED_PSK, WIFI_BSSID, WIFI_CHANNEL);
 }
 
 bool wifi_up() {
@@ -202,14 +203,8 @@ char wait_for_button_press_release() {
             tight_loop_contents();
         }
 
-        if (badger.pressed(badger.UP) || badger.pressed(badger.DOWN)) { 
-            // piezo_play(piezo_notes_test_1, piezo_notes_test_1_len);
-            // piezo_play(piezo_notes_test_4, piezo_notes_test_4_len);
-        } else {
-            // piezo_play(piezo_notes_ping, piezo_notes_ping_len);
-        }
         badger.led(255);
-        sleep_ms(20);    // debounce
+        sleep_ms(80);    // debounce
     }
 }
 
@@ -415,7 +410,6 @@ int main() {
     gpio_set_function(badger.ENABLE_3V3, GPIO_FUNC_SIO);
     gpio_set_dir(badger.ENABLE_3V3, GPIO_OUT);
     gpio_put(badger.ENABLE_3V3, 1);
-
     pwm_config cfg = pwm_get_default_config();
     pwm_set_wrap(pwm_gpio_to_slice_num(badger.LED), 65535);
     pwm_init(pwm_gpio_to_slice_num(badger.LED), &cfg, true);

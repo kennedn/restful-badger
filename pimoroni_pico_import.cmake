@@ -1,8 +1,6 @@
 # This file can be dropped into a project to help locate the Pimoroni Pico libraries
 # It will also set up the required include and module search paths.
 
-set(PIMORONI_PICO_PATH "/home/kennedn/Projects/pimoroni-pico-kennedn" CACHE PATH "Path to the Pimoroni SDK" FORCE)
-
 if (DEFINED ENV{PIMORONI_PICO_FETCH_FROM_GIT} AND (NOT PIMORONI_PICO_FETCH_FROM_GIT))
     set(PIMORONI_PICO_FETCH_FROM_GIT $ENV{PIMORONI_PICO_FETCH_FROM_GIT})
     message("Using PIMORONI_PICO_FETCH_FROM_GIT from environment ('${PIMORONI_PICO_FETCH_FROM_GIT}')")

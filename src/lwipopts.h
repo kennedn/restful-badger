@@ -19,16 +19,16 @@
 #define MEM_LIBC_MALLOC 0
 #endif
 #define MEM_ALIGNMENT 4
-#define MEM_SIZE 1600
-#define MEMP_NUM_TCP_SEG 16
-#define MEMP_NUM_ARP_QUEUE 30
-#define PBUF_POOL_SIZE 16
+#define MEM_SIZE 4000
+#define MEMP_NUM_TCP_SEG 32
+#define MEMP_NUM_ARP_QUEUE 10
+#define PBUF_POOL_SIZE 24
 #define LWIP_ARP 1
 #define LWIP_ETHERNET 1
 #define LWIP_ICMP 1
 #define LWIP_RAW 1
-#define TCP_WND (4 * TCP_MSS)
-#define TCP_MSS 536
+#define TCP_WND 16384
+#define TCP_MSS 1460
 #define TCP_SND_BUF (2 * TCP_MSS)
 #define TCP_SND_QUEUELEN ((4 * (TCP_SND_BUF) + (TCP_MSS - 1)) / (TCP_MSS))
 #define LWIP_NETIF_STATUS_CALLBACK 1
@@ -40,6 +40,9 @@
 #define MEMP_STATS 1
 #define LINK_STATS 1
 // #define ETH_PAD_SIZE                2
+#define LWIP_ALTCP 1
+#define LWIP_ALTCP_TLS 1
+#define LWIP_ALTCP_TLS_MBEDTLS 1
 #define LWIP_CHKSUM_ALGORITHM 3
 #define LWIP_DHCP 0
 #define LWIP_IPV4 1
@@ -57,6 +60,7 @@
 #define LWIP_STATS_DISPLAY 1
 #endif
 
+#define ALTCP_MBEDTLS_DEBUG LWIP_DBG_OFF
 #define ETHARP_DEBUG LWIP_DBG_OFF
 #define NETIF_DEBUG LWIP_DBG_OFF
 #define PBUF_DEBUG LWIP_DBG_OFF

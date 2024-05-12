@@ -4,16 +4,16 @@
 #include <time.h>
 
 #include "badger.h"
-#include "lwip/dns.h"
-#include "lwip/pbuf.h"
-#include "lwip/tcp.h"
-#include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
+#include "pico/cyw43_arch.h"
+#include "lwip/pbuf.h"
+#include "lwip/altcp_tcp.h"
+#include "lwip/altcp_tls.h"
+#include "lwip/dns.h"
 
-#define TCP_PORT 80
+#define TCP_PORT 443
 #define BUF_SIZE 2048
 
-#define TEST_ITERATIONS 10
 #define POLL_TIME_S 5
 
 #if 0
@@ -40,8 +40,8 @@ static void dump_bytes(const uint8_t *bptr, uint32_t len) {
 #define DUMP_BYTES(A, B)
 #endif
 
-typedef struct TCP_CLIENT_T_ {
-    struct tcp_pcb *tcp_pcb;
+typedef struct TLS_CLIENT_T_ {
+    struct altcp_pcb *pcb;
     ip_addr_t remote_addr;
     uint8_t buffer[BUF_SIZE];
     int buffer_len;
@@ -53,14 +53,16 @@ typedef struct TCP_CLIENT_T_ {
     const char *key;
     http_callback_t callback;
     void *arg;
-} TCP_CLIENT_T;
+} TLS_CLIENT_T;
+
+static struct altcp_tls_config *tls_config = NULL;
 
 /*!
  * \brief Extract HTTP response code and optionally scrape the JSON body for a key/value pair
  * \param arg TCP server state struct
  */
 static void http_process_buffer(void *arg) {
-    TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
+    TLS_CLIENT_T *state = (TLS_CLIENT_T *)arg;
     if (state->buffer == NULL) {
         state->callback(NULL, 0, state->arg);
         return;
@@ -133,50 +135,50 @@ static void http_process_buffer(void *arg) {
     state->callback(value, response_code, state->arg);
 }
 
-static err_t tcp_client_close(void *arg) {
-    DEBUG_printf("tcp_client_close\n");
-    TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
+static err_t tls_client_close(void *arg) {
+    DEBUG_printf("tls_client_close\n");
+    TLS_CLIENT_T *state = (TLS_CLIENT_T *)arg;
     err_t err = ERR_OK;
     if (state == NULL) {
         return err;
     }
     
-    if (state->tcp_pcb != NULL) {
-        tcp_arg(state->tcp_pcb, NULL);
-        tcp_poll(state->tcp_pcb, NULL, 0);
-        tcp_sent(state->tcp_pcb, NULL);
-        tcp_recv(state->tcp_pcb, NULL);
-        tcp_err(state->tcp_pcb, NULL);
-        err = tcp_close(state->tcp_pcb);
+    if (state->pcb != NULL) {
+        altcp_arg(state->pcb, NULL);
+        altcp_poll(state->pcb, NULL, 0);
+        altcp_sent(state->pcb, NULL);
+        altcp_recv(state->pcb, NULL);
+        altcp_err(state->pcb, NULL);
+        err = altcp_close(state->pcb);
         if (err != ERR_OK) {
             DEBUG_printf("close failed %d, calling abort\n", err);
-            tcp_abort(state->tcp_pcb);
+            altcp_abort(state->pcb);
             err = ERR_ABRT;
         }
-        state->tcp_pcb = NULL;
+        state->pcb = NULL;
     }
     return err;
 }
 
 // Called with results of operation
-static err_t tcp_result(void *arg, int status) {
-    TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
+static err_t tls_result(void *arg, int status) {
+    TLS_CLIENT_T *state = (TLS_CLIENT_T *)arg;
     if (status == 0) {
         DEBUG_printf("success\n");
     } else {
         DEBUG_printf("failed %d\n", status);
     }
 
-    err_t err = tcp_client_close(arg);
+    err_t err = tls_client_close(arg);
     http_process_buffer(arg);
     free(state);
     DEBUG_printf("state freed\n");
     return err;
 }
 
-static err_t tcp_client_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
-    TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
-    DEBUG_printf("tcp_client_sent %u\n", len);
+static err_t tls_client_sent(void *arg, struct altcp_pcb *tpcb, u16_t len) {
+    TLS_CLIENT_T *state = (TLS_CLIENT_T *)arg;
+    DEBUG_printf("tls_client_sent %u\n", len);
     state->sent_len += len;
 
     if (state->sent_len >= BUF_SIZE) {
@@ -188,11 +190,11 @@ static err_t tcp_client_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     return ERR_OK;
 }
 
-static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err) {
-    TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
+static err_t tls_client_connected(void *arg, struct altcp_pcb *tpcb, err_t err) {
+    TLS_CLIENT_T *state = (TLS_CLIENT_T *)arg;
     if (err != ERR_OK) {
         DEBUG_printf("connect failed %d\n", err);
-        return tcp_result(arg, err);
+        return tls_result(arg, err);
     }
     DEBUG_printf("Connected, sending HTTP payload\n");
 
@@ -208,16 +210,16 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err) {
                                 state->json_body);
 
     DEBUG_printf("Writing %d bytes to server\n", state->buffer_len);
-    err = tcp_write(tpcb, state->buffer, state->buffer_len, TCP_WRITE_FLAG_COPY);
+    err = altcp_write(tpcb, state->buffer, state->buffer_len, TCP_WRITE_FLAG_COPY);
     if (err != ERR_OK) {
         DEBUG_printf("Failed to enqueue data %d\n", err);
-        return tcp_result(arg, -1);
+        return tls_result(arg, -1);
     }
 
-    err = tcp_output(tpcb);
+    err = altcp_output(tpcb);
     if (err != ERR_OK) {
         DEBUG_printf("Failed to send data %d\n", err);
-        return tcp_result(arg, -1);
+        return tls_result(arg, -1);
     }
 
     state->buffer_len = 0;
@@ -225,22 +227,22 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err) {
     return ERR_OK;
 }
 
-static err_t tcp_client_poll(void *arg, struct tcp_pcb *tpcb) {
-    DEBUG_printf("tcp_client_poll\n");
-    return tcp_result(arg, -1);  // no response is an error?
+static err_t tls_client_poll(void *arg, struct altcp_pcb *tpcb) {
+    DEBUG_printf("tls_client_poll\n");
+    return tls_result(arg, -1);  // no response is an error?
 }
 
-static void tcp_client_err(void *arg, err_t err) {
+static void tls_client_err(void *arg, err_t err) {
     if (err != ERR_ABRT) {
-        DEBUG_printf("tcp_client_err %d\n", err);
-        tcp_result(arg, err);
+        DEBUG_printf("tls_client_err %d\n", err);
+        tls_result(arg, err);
     }
 }
 
-err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
-    TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
+err_t tls_client_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *p, err_t err) {
+    TLS_CLIENT_T *state = (TLS_CLIENT_T *)arg;
     if (!p) {
-        return tcp_result(arg, -1);
+        return tls_result(arg, -1);
     }
     if (p->tot_len > 0) {
         DEBUG_printf("recv %d err %d\n", p->tot_len, err);
@@ -251,60 +253,60 @@ err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         const uint16_t buffer_left = BUF_SIZE - state->buffer_len;
         state->buffer_len += pbuf_copy_partial(p, state->buffer + state->buffer_len,
                                                p->tot_len > buffer_left ? buffer_left : p->tot_len, 0);
-        tcp_recved(tpcb, p->tot_len);
+        altcp_recved(tpcb, p->tot_len);
     }
     pbuf_free(p);
 
     // If we have received the whole buffer, we are done
     if (state->buffer_len == p->tot_len) {
-        return tcp_result(arg, 0);
+        return tls_result(arg, 0);
     }
     return ERR_OK;
 }
 
-static bool tcp_client_open(void *arg) {
-    TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
+static bool tls_client_open(void *arg) {
+    TLS_CLIENT_T *state = (TLS_CLIENT_T *)arg;
     DEBUG_printf("Connecting to %s port %u\n", ip4addr_ntoa(&state->remote_addr), TCP_PORT);
-    state->tcp_pcb = tcp_new_ip_type(IP_GET_TYPE(&state->remote_addr));
-    if (!state->tcp_pcb) {
+    state->pcb = altcp_tls_new(tls_config, IP_GET_TYPE(&state->remote_addr));
+    if (!state->pcb) {
         DEBUG_printf("failed to create pcb\n");
         return false;
     }
 
-    tcp_arg(state->tcp_pcb, state);
-    tcp_poll(state->tcp_pcb, tcp_client_poll, POLL_TIME_S * 2);
-    tcp_sent(state->tcp_pcb, tcp_client_sent);
-    tcp_recv(state->tcp_pcb, tcp_client_recv);
-    tcp_err(state->tcp_pcb, tcp_client_err);
+    altcp_arg(state->pcb, state);
+    altcp_poll(state->pcb, tls_client_poll, POLL_TIME_S * 2);
+    altcp_sent(state->pcb, tls_client_sent);
+    altcp_recv(state->pcb, tls_client_recv);
+    altcp_err(state->pcb, tls_client_err);
 
     state->buffer_len = 0;
 
     cyw43_arch_lwip_begin();
-    err_t err = tcp_connect(state->tcp_pcb, &state->remote_addr, TCP_PORT, tcp_client_connected);
+    err_t err =  altcp_connect(state->pcb, &state->remote_addr, TCP_PORT, tls_client_connected);
     cyw43_arch_lwip_end();
 
     return err == ERR_OK;
 }
 
 // Call back with a DNS result
-static void tcp_dns_found(const char *hostname, const ip_addr_t *ipaddr, void *arg) {
-    TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
+static void tls_dns_found(const char *hostname, const ip_addr_t *ipaddr, void *arg) {
+    TLS_CLIENT_T *state = (TLS_CLIENT_T *)arg;
     if (ipaddr) {
         state->remote_addr = *ipaddr;
-        DEBUG_printf("tcp address %s\n", ipaddr_ntoa(ipaddr));
-        if (!tcp_client_open(state)) {
-            tcp_result(state, -1);
+        DEBUG_printf("tls address %s\n", ipaddr_ntoa(ipaddr));
+        if (!tls_client_open(state)) {
+            tls_result(state, -1);
             return;
         }
     } else {
-        DEBUG_printf("tcp dns request failed\n");
-        tcp_result(state, -1);
+        DEBUG_printf("tls dns request failed\n");
+        tls_result(state, -1);
     }
 }
 
 // Perform initialisation
-static TCP_CLIENT_T *tcp_client_init(const char *url, const char *endpoint, const char *method, const char *json_body, const char *key, http_callback_t callback, void *arg) {
-    TCP_CLIENT_T *state = calloc(1, sizeof(TCP_CLIENT_T));
+static TLS_CLIENT_T *tls_client_init(const char *url, const char *endpoint, const char *method, const char *json_body, const char *key, http_callback_t callback, void *arg) {
+    TLS_CLIENT_T *state = calloc(1, sizeof(TLS_CLIENT_T));
     if (!state) {
         DEBUG_printf("failed to allocate state\n");
         return NULL;
@@ -321,22 +323,29 @@ static TCP_CLIENT_T *tcp_client_init(const char *url, const char *endpoint, cons
 }
 
 void http_request(const char *url, const char *endpoint, const char *method, const char *json_body, const char *key, http_callback_t callback, void *arg) {
-    TCP_CLIENT_T *state = tcp_client_init(url, endpoint, method, json_body, key, callback, arg);
+    tls_config = altcp_tls_create_config_client(NULL, 0);
+    if(!tls_config) {
+        return;
+    }
+    TLS_CLIENT_T *state = tls_client_init(url, endpoint, method, json_body, key, callback, arg);
     if (!state) {
         return;
     }
 
+    mbedtls_ssl_set_hostname(altcp_tls_context(state->pcb), url);
     cyw43_arch_lwip_begin();
-    int err = dns_gethostbyname(url, &state->remote_addr, tcp_dns_found, state);
+    int err = dns_gethostbyname(url, &state->remote_addr, tls_dns_found, state);
     cyw43_arch_lwip_end();
 
     if (err == ERR_OK) {  // Cached result
-        if (!tcp_client_open(state)) {
-            tcp_result(state, -1);
+        if (!tls_client_open(state)) {
+            tls_result(state, -1);
+            altcp_tls_free_config(tls_config);
             return;
         }
     } else if (err != ERR_INPROGRESS) {  // ERR_INPROGRESS means the callback will set the remote address
         DEBUG_printf("dns request failed\n");
-        tcp_result(state, -1);
+        tls_result(state, -1);
+        altcp_tls_free_config(tls_config);
     }
 }

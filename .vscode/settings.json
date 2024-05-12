@@ -23,6 +23,7 @@
         "chrono": "cpp",
         "cstdint": "cpp",
         "compare": "cpp",
-        "pwm.h": "c"
+        "pwm.h": "c",
+        "altcp_tcp.h": "c"
     }
 }

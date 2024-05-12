@@ -54,6 +54,8 @@ target_link_libraries(badger
     pimoroni_bus
     pico_stdlib
     pico_cyw43_arch_lwip_threadsafe_background
+    pico_lwip_mbedtls
+    pico_mbedtls
 )
 
 pico_enable_stdio_usb(badger 1)

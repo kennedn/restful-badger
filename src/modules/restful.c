@@ -51,6 +51,7 @@ RESTFUL_REQUEST *restful_make_request(void *tile, const char *base_url, RESTFUL_
     request->status_request = status_request;
     request->callback = callback;
 
+    return request;
 }
 
 void restful_free_request(RESTFUL_REQUEST *request) {

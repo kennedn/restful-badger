@@ -215,10 +215,9 @@ void draw_status_bar() {
 void draw_status_bar(bool sleep) {
     datetime_t datetime;
     float voltage;
-    char powerPercent;
+    char powerPercent = 0;
     char percentStr[5];
     char clock_str[12];
-    char *heading_str;
     char status_x_offset = 0;
     char x_pad = 4;
     int32_t clock_x_offset;
@@ -451,7 +450,7 @@ int main() {
             badger.update();
             initialised = true;
         } else {
-            for(int i=0; i <  count_of(request_buttons); i++) {
+            for(uint i=0; i <  count_of(request_buttons); i++) {
                 if (!badger.pressed(request_buttons[i])) {
                     continue;
                 }

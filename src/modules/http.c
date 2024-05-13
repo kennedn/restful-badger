@@ -61,10 +61,6 @@ typedef struct TCP_CLIENT_T_ {
  */
 static void http_process_buffer(void *arg) {
     TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
-    if (state->buffer == NULL) {
-        state->callback(NULL, 0, state->arg);
-        return;
-    }
 
     // Process HTTP response body, example: "HTTP/1.1 200 OK\r\n"
     char *message_body = strstr((char *)state->buffer, " ");

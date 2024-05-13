@@ -22,8 +22,7 @@ set(JSON_FILEPATH "${PROJECT_SOURCE_DIR}/config/tiles.json" CACHE STRING "Locati
 
 execute_process(COMMAND "${PROJECT_SOURCE_DIR}/tools/json_to_c_array.py" "-f" "${JSON_FILEPATH}" OUTPUT_VARIABLE "TILES_DATA")
 
-
-target_compile_options(badger PRIVATE -Wreturn-type)
+target_compile_options(badger PRIVATE -Wreturn-type -Wall -Wno-char-subscripts -Wno-sequence-point)
 target_compile_definitions(badger PRIVATE 
     WIFI_SSID=\"${WIFI_SSID}\"
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"

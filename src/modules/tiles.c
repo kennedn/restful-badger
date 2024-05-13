@@ -13,6 +13,7 @@
 
 TILES *tile_array;
 HEADING **heading_array;
+char heading_count;
 char tile_column;
 static const char tiles_data[] PROGMEM = {
     TILES_DATA};
@@ -46,7 +47,7 @@ void tiles_free() {
         return;
     }
 
-    for (int i = 0; i < count_of(heading_array); i++) {
+    for (int i = 0; i < heading_count; i++) {
         free(heading_array[i]->heading);
         free(heading_array[i]);
     }
@@ -135,7 +136,6 @@ void tiles_make_tiles() {
     RESTFUL_REQUEST_DATA *action_request;
     RESTFUL_REQUEST_DATA *status_request;
     HEADING *heading;
-    char *heading_str;
     char *name;
     char *method;
     char *endpoint;
@@ -145,7 +145,7 @@ void tiles_make_tiles() {
     char *off_value;
     int ptr = 0;
 
-    char heading_count = tiles_data[ptr++];
+    heading_count = tiles_data[ptr++];
     heading_array = (HEADING **)malloc(heading_count * sizeof(HEADING *));
     for (char i = 0; i < heading_count; i++) {
         heading = (HEADING *)malloc(sizeof(HEADING));

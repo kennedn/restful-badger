@@ -55,7 +55,7 @@ static void ntp_convert_epoch(const time_t *epoch, datetime_t *datetime) {
     datetime->month = timeinfo->tm_mon + 1;
     datetime->day = timeinfo->tm_mday;
     datetime->dotw = timeinfo->tm_wday;
-    datetime->hour = timeinfo->tm_hour + ntp_is_dst(timeinfo);
+    datetime->hour = (timeinfo->tm_hour + ntp_is_dst(timeinfo)) % 24;
     datetime->min = timeinfo->tm_min;
     datetime->sec = timeinfo->tm_sec;
 }

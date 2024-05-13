@@ -111,8 +111,8 @@ int64_t halt_timeout_callback(alarm_id_t id, void *arg) {
 
 
 bool datetime_is_sane(datetime_t *datetime) {
-    if (datetime->year < 0 || datetime->month > 4095) { return false; }
-    if (datetime->month < 1 || datetime->day > 12) { return false; }
+    if (datetime->year < 0 || datetime->year > 4095) { return false; }
+    if (datetime->month < 1 || datetime->month > 12) { return false; }
     if (datetime->day < 1 || datetime->day > 31) { return false; }
     if (datetime->dotw < 0 || datetime->dotw > 6) { return false; }
     if (datetime->hour < 0 || datetime->hour > 23) { return false; }

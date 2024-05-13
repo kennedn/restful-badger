@@ -5,6 +5,7 @@ set(NTP_SERVER "pool.ntp.org" CACHE STRING "Specify the NTP server")
 set(IP_ADDRESS "192.168.1.204" CACHE STRING "Specify IP Address")
 set(IP_GATEWAY "192.168.1.1" CACHE STRING "Specify IP Gateway")
 set(IP_DNS "192.168.1.1" CACHE STRING "Specify IP DNS")
+set(DEBUG_PRINT 0 CACHE BOOL "Enables debug printf")
 
 # BSSID format
 string(REPLACE ":" ", 0x" BSSID_HEX "${WIFI_BSSID}")
@@ -22,7 +23,7 @@ set(JSON_FILEPATH "${PROJECT_SOURCE_DIR}/config/tiles.json" CACHE STRING "Locati
 
 execute_process(COMMAND "${PROJECT_SOURCE_DIR}/tools/json_to_c_array.py" "-f" "${JSON_FILEPATH}" OUTPUT_VARIABLE "TILES_DATA")
 
-target_compile_options(badger PRIVATE -Wreturn-type -Wall -Wno-char-subscripts -Wno-sequence-point)
+target_compile_options(badger PRIVATE -Wall)
 target_compile_definitions(badger PRIVATE 
     WIFI_SSID=\"${WIFI_SSID}\"
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
@@ -35,6 +36,7 @@ target_compile_definitions(badger PRIVATE
     IP_GATEWAY=${IP_GATEWAY_FMT}
     IP_DNS=${IP_DNS_FMT}
     TILES_DATA=${TILES_DATA}
+    DEBUG_PRINT=${DEBUG_PRINT}
 )
 add_subdirectory(modules)
 

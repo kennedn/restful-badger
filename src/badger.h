@@ -1,6 +1,7 @@
 #pragma once
-#define DEBUG_printf printf
-// #define DEBUG_printf(...)
+#define DEBUG_PRINTF(...) \
+  do { if (DEBUG_PRINT) printf(__VA_ARGS__); } while (0)
 
-#define HALT_TIMEOUT_MS 15000
+
+#define HALT_TIMEOUT_MS 60000
 #define MULTI_CLICK_WAIT_MS 350

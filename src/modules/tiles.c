@@ -13,8 +13,8 @@
 
 TILES *tile_array;
 HEADING **heading_array;
-char heading_count;
-char tile_column;
+uint8_t heading_count;
+uint8_t tile_column;
 static const char tiles_data[] PROGMEM = {
     TILES_DATA};
 
@@ -53,10 +53,10 @@ void tiles_free() {
     }
     free(heading_array);
     heading_array = NULL;
-    DEBUG_printf("tiles_free: %ld us\n", (long)(to_us_since_boot(get_absolute_time()) - sw_time));
+    DEBUG_PRINTF("tiles_free: %ld us\n", (long)(to_us_since_boot(get_absolute_time()) - sw_time));
 }
 
-void tiles_add_tile(char *name, char image_idx, void *action_request, void *status_request) {
+void tiles_add_tile(char *name, uint8_t image_idx, void *action_request, void *status_request) {
     TILE *tile = (TILE *)malloc(sizeof(TILE));
 
     tile->name = name;
@@ -71,7 +71,7 @@ void tiles_add_tile(char *name, char image_idx, void *action_request, void *stat
     }
 
     if (tile_array->used >= TILES_MAX) {
-        DEBUG_printf("Hit TILES_MAX(%d), skipping tile\n", TILES_MAX);
+        DEBUG_PRINTF("Hit TILES_MAX(%d), skipping tile\n", TILES_MAX);
         free(tile);
         return;
     }
@@ -122,11 +122,12 @@ char tiles_idx_in_bounds(char idx) {
     return idx < tile_array->used;
 }
 
-char tiles_make_str(char **dest, char str_size, const char *src) {
+char tiles_make_str(char **dest, const char *src) {
+    uint8_t str_size = (uint8_t)*src++;
     *dest = (char *)malloc(str_size * sizeof(char) + 1);
     strncpy(*dest, src, str_size);
     (*dest)[str_size] = '\0';  // Null terminate
-    return str_size;
+    return str_size + 1;
 }
 
 void tiles_make_tiles() {
@@ -147,11 +148,11 @@ void tiles_make_tiles() {
 
     heading_count = tiles_data[ptr++];
     heading_array = (HEADING **)malloc(heading_count * sizeof(HEADING *));
-    for (char i = 0; i < heading_count; i++) {
+    for (uint8_t i = 0; i < heading_count; i++) {
         heading = (HEADING *)malloc(sizeof(HEADING));
-        char str_size = tiles_data[ptr++];
 
-        if (str_size == 0) {
+        if (tiles_data[ptr] == 0) {
+            ptr++;
             // This is a padding tile
             heading->heading = NULL;
             heading->icon = 0;
@@ -159,21 +160,20 @@ void tiles_make_tiles() {
             continue;
         }
 
-        ptr += tiles_make_str(&(heading->heading), str_size, (char *)&tiles_data[ptr]);
-        heading->icon = (char *)image_icons[tiles_data[ptr++]];
+        ptr += tiles_make_str(&(heading->heading), (char *)&tiles_data[ptr]);
+        heading->icon = (char *)image_icons[(uint8_t)tiles_data[ptr++]];
         heading_array[i] = heading;
     }
 
     char tile_count = tiles_data[ptr++];
     for (char i = 0; i < tile_count; i++) {
-        char str_size = tiles_data[ptr++];
-
-        if (str_size == 0) {
+        if (tiles_data[ptr] == 0) {
+            ptr++;
             // This is a padding tile
             tiles_add_tile(NULL, 0, NULL, NULL);
             continue;
         }
-        ptr += tiles_make_str(&name, str_size, (char *)&tiles_data[ptr]);
+        ptr += tiles_make_str(&name, (char *)&tiles_data[ptr]);
 
         char image_idx = tiles_data[ptr++];
         char request_mask = tiles_data[ptr++];
@@ -181,9 +181,9 @@ void tiles_make_tiles() {
         // Action request present
         action_request = NULL;
         if (request_mask & 1) {
-            ptr += tiles_make_str(&method, tiles_data[ptr++], (char *)&tiles_data[ptr]);
-            ptr += tiles_make_str(&endpoint, tiles_data[ptr++], (char *)&tiles_data[ptr]);
-            ptr += tiles_make_str(&json_body, tiles_data[ptr++], (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&method, (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&endpoint, (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&json_body, (char *)&tiles_data[ptr]);
 
             action_request = restful_make_request_data(
                 method,
@@ -196,12 +196,12 @@ void tiles_make_tiles() {
         // Status request present
         status_request = NULL;
         if (request_mask & 2) {
-            ptr += tiles_make_str(&method, tiles_data[ptr++], (char *)&tiles_data[ptr]);
-            ptr += tiles_make_str(&endpoint, tiles_data[ptr++], (char *)&tiles_data[ptr]);
-            ptr += tiles_make_str(&json_body, tiles_data[ptr++], (char *)&tiles_data[ptr]);
-            ptr += tiles_make_str(&key, tiles_data[ptr++], (char *)&tiles_data[ptr]);
-            ptr += tiles_make_str(&on_value, tiles_data[ptr++], (char *)&tiles_data[ptr]);
-            ptr += tiles_make_str(&off_value, tiles_data[ptr++], (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&method, (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&endpoint, (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&json_body, (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&key, (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&on_value, (char *)&tiles_data[ptr]);
+            ptr += tiles_make_str(&off_value, (char *)&tiles_data[ptr]);
 
             status_request = restful_make_request_data(
                 method,
@@ -214,5 +214,5 @@ void tiles_make_tiles() {
 
         tiles_add_tile(name, image_idx, action_request, status_request);
     }
-    DEBUG_printf("tiles_make_tiles: %ld us\n", (long)(to_us_since_boot(get_absolute_time()) - sw_time));
+    DEBUG_PRINTF("tiles_make_tiles: %ld us\n", (long)(to_us_since_boot(get_absolute_time()) - sw_time));
 }

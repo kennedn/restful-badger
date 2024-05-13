@@ -95,7 +95,7 @@ static void ntp_request(NTP_T *state) {
 
 static int64_t ntp_failed_handler(alarm_id_t id, void *user_data) {
     NTP_T *state = (NTP_T *)user_data;
-    DEBUG_printf("ntp request failed\n");
+    DEBUG_PRINTF("ntp request failed\n");
     ntp_result(state, -1, NULL);
     return 0;
 }
@@ -105,10 +105,10 @@ static void ntp_dns_found(const char *hostname, const ip_addr_t *ipaddr, void *a
     NTP_T *state = (NTP_T *)arg;
     if (ipaddr) {
         state->ntp_server_address = *ipaddr;
-        DEBUG_printf("ntp address %s\n", ipaddr_ntoa(ipaddr));
+        DEBUG_PRINTF("ntp address %s\n", ipaddr_ntoa(ipaddr));
         ntp_request(state);
     } else {
-        DEBUG_printf("ntp dns request failed\n");
+        DEBUG_PRINTF("ntp dns request failed\n");
         ntp_result(state, -1, NULL);
     }
 }
@@ -129,7 +129,7 @@ static void ntp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_ad
         time_t epoch = seconds_since_1970;
         ntp_result(state, 0, &epoch);
     } else {
-        DEBUG_printf("invalid ntp response\n");
+        DEBUG_PRINTF("invalid ntp response\n");
         ntp_result(state, -1, NULL);
     }
     pbuf_free(p);
@@ -139,12 +139,12 @@ static void ntp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_ad
 static NTP_T *ntp_init(ntp_callback_t callback, void *arg) {
     NTP_T *state = (NTP_T *)calloc(1, sizeof(NTP_T));
     if (!state) {
-        DEBUG_printf("failed to allocate state\n");
+        DEBUG_PRINTF("failed to allocate state\n");
         return NULL;
     }
     state->ntp_pcb = udp_new_ip_type(IPADDR_TYPE_ANY);
     if (!state->ntp_pcb) {
-        DEBUG_printf("failed to create pcb\n");
+        DEBUG_PRINTF("failed to create pcb\n");
         free(state);
         return NULL;
     }
@@ -169,7 +169,7 @@ void ntp_get_time(ntp_callback_t callback, void *arg) {
     if (err == ERR_OK) {  // dns record retrieved from cache
         ntp_request(state);
     } else if (err != ERR_INPROGRESS) {  // ERR_INPROGRESS means the dns callback is pending
-        DEBUG_printf("dns request failed\n");
+        DEBUG_PRINTF("dns request failed\n");
         ntp_result(state, -1, NULL);
     }
 }

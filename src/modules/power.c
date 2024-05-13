@@ -63,19 +63,18 @@ bool power_is_charging() {
 }
 
 void power_print() {
-    char *power_str = (char *)"UNKNOWN";
+    char *power_str = (char *)"POWERED";
     // Get voltage
     float voltage = 0;
     power_voltage(&voltage);
     // voltage = floorf(voltage * 100) / 100;
 
     char percent_buf[10] = {0};
-    power_str = (char *)"POWERED";
     if (!power_is_charging()) {
         power_str = (char *)"BATTERY";
         int percent_val = power_percent(&voltage);
         snprintf(percent_buf, sizeof(percent_buf), " (%d%%)", percent_val);
     }
 
-    DEBUG_printf("%f, %s%s\n", voltage, power_str, percent_buf);
+    DEBUG_PRINTF("%f, %s%s\n", voltage, power_str, percent_buf);
 }

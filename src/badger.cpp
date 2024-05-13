@@ -51,11 +51,11 @@ void ntp_callback(datetime_t *datetime, void *arg) {
         ntp_time_set = true;
         return;
     }
-    DEBUG_printf("Got datetime from NTP\n");
+    DEBUG_PRINTF("Got datetime from NTP\n");
     badger.pcf85063a->set_datetime(datetime);
     rtc_set_datetime(datetime);
 
-    DEBUG_printf("Setting daily NTP time alarm\n");
+    DEBUG_PRINTF("Setting daily NTP time alarm\n");
     // Set daily alarm and enable interrupt
     badger.pcf85063a->set_alarm(ntp_daily_alarm.sec, ntp_daily_alarm.min, ntp_daily_alarm.hour, ntp_daily_alarm.day);
     badger.pcf85063a->enable_alarm_interrupt(true);
@@ -82,7 +82,7 @@ void restful_callback(char *value, int status_code, void *arg) {
         draw_tiles(tile->name, image_indicator_tick);
     }
 
-    DEBUG_printf("restful_callback: value=%s, status_code=%d, caller=%s\n", value ? value : "NULL", status_code, tile->name);
+    DEBUG_PRINTF("restful_callback: value=%s, status_code=%d, caller=%s\n", value ? value : "NULL", status_code, tile->name);
     if (value && !strcmp(request->status_request->on_value, value)) {
         draw_tiles(tile->name, image_indicator_tick);
         // piezo_play(piezo_notes_pong, piezo_notes_pong_len);
@@ -125,18 +125,18 @@ void retrieve_time(bool from_ntp) {
     ntp_time_set = false;
     // Check if RTC has been initialised previously, if not or if the RTC int is high get the internet time via NTP
     if (from_ntp) {
-        DEBUG_printf("Retrieving time from NTP\n");
+        DEBUG_PRINTF("Retrieving time from NTP\n");
         ntp_get_time(ntp_callback, NULL);
         // Block until the callback sets datetime
         while (!ntp_time_set) {
             tight_loop_contents();
         }
     } else {
-        DEBUG_printf("Retrieving time from RTC\n");
+        DEBUG_PRINTF("Retrieving time from RTC\n");
         // Retrieve stored time from external RTC
         datetime_t datetime = badger.pcf85063a->get_datetime();
         if (!datetime_is_sane(&datetime)) {
-            DEBUG_printf("RTC time is insane, triggering NTP retrieval\n");
+            DEBUG_PRINTF("RTC time is insane, triggering NTP retrieval\n");
             retrieve_time(true);
             return;
         }
@@ -323,7 +323,7 @@ void draw_tiles(const char *name, const char *indicator_icon) {
         }
     }
 
-    DEBUG_printf("current column: %d, max: %d\n", tiles_get_column(), tiles_max_column());
+    DEBUG_PRINTF("current column: %d, max: %d\n", tiles_get_column(), tiles_max_column());
     // Can only fit 10 squares on screen at a time, so if max columns exceeds this we must split the display up into sections of 10
     char current_col = tiles_get_column() % 10;
     char last_10s_col = tiles_max_column() - tiles_max_column() % 10;
@@ -347,7 +347,7 @@ void init() {
     rtc_init();
 
     if (cyw43_arch_init()) {
-        DEBUG_printf("failed to initialise\n");
+        DEBUG_PRINTF("failed to initialise\n");
         deinit(true);
     }
     cyw43_arch_enable_sta_mode();
@@ -385,7 +385,7 @@ void init() {
 }
 
 void deinit(bool update_display) {
-    DEBUG_printf("Going to sleep zZzZ\n");
+    DEBUG_PRINTF("Going to sleep zZzZ\n");
     if (update_display) {
         draw_status_bar(true);
         draw_tiles(NULL, NULL);

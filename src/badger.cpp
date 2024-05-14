@@ -187,6 +187,7 @@ void wifi_wait() {
             led_timer = to_ms_since_boot(get_absolute_time());
         }
     }
+    badger.led(255);
 }
 
 char wait_for_button_press_release() {

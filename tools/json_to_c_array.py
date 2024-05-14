@@ -75,21 +75,10 @@ def main():
             append_string(buffer, request["on_value"])
             append_string(buffer, request["off_value"])
 
-        
-
-    # for byte in buffer:
-    #     if 33 <= byte <= 126:
-    #         print(f"'{chr(byte)}'", end=",")
-    #     else:
-    #         print(byte, end=",")
-    # print()
-
     if args.wrap:
         print(f"static const char tiles_data[{len(buffer)}] PROGMEM = {{\n    {', '.join(str(b) for b in buffer)}\n}};")
     else:
         print(','.join(str(b) for b in buffer), end="")
-
-
 
 if __name__ == "__main__":
     main()

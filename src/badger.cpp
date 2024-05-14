@@ -42,9 +42,9 @@ static volatile bool halt_initiated = false;
 static volatile bool initialised = false;
 
 void draw_status_bar();
-void draw_status_bar(bool sleep);
+void draw_status_bar(const char *message);
 void draw_tiles(const char *name, const char *indicator_icon);
-void deinit(bool update_display=false);
+void deinit(const char *message = NULL);
 
 void ntp_callback(datetime_t *datetime, void *arg) {
     if (datetime == NULL) {
@@ -165,14 +165,26 @@ bool wifi_up() {
 
 void wifi_wait() {
     uint32_t sw_timer = 0;
+    uint32_t led_timer = 0;
+    uint8_t attempts = 0;
+    bool led = true;
     while(!wifi_up()) {
         if (halt_initiated) {
-            deinit(initialised);
+            deinit("Sleeping");
+        }
+        if (attempts > WIFI_CONNECT_ATTEMPTS) {
+            deinit("No WiFi");
         }
         // Retry wifi connect if link status is in error
         if ((sw_timer == 0 || (to_ms_since_boot(get_absolute_time()) - sw_timer) > WIFI_STATUS_POLL_MS) && cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA) <= 0) {
             wifi_connect_async();
             sw_timer = to_ms_since_boot(get_absolute_time());
+            attempts++;
+        }
+        if (led_timer == 0 || (to_ms_since_boot(get_absolute_time()) - led_timer) > 100) {
+            badger.led(led ? 255 : 0);
+            led = !led;
+            led_timer = to_ms_since_boot(get_absolute_time());
         }
     }
 }
@@ -186,7 +198,7 @@ char wait_for_button_press_release() {
         while(!(gpio_get_all() & mask)) {
             // timer callback has asked for a halt
             if (halt_initiated) {
-                deinit(initialised);
+                deinit("Sleeping");
             }
             // Allow a grace period before returning to record subsequent clicks
             if (counter > 0 && (to_ms_since_boot(get_absolute_time()) - sw_timer) > MULTI_CLICK_WAIT_MS) {
@@ -209,10 +221,10 @@ char wait_for_button_press_release() {
 }
 
 void draw_status_bar() {
-    draw_status_bar(false);
+    draw_status_bar(NULL);
 }
 
-void draw_status_bar(bool sleep) {
+void draw_status_bar(const char *message) {
     datetime_t datetime;
     float voltage;
     char powerPercent = 0;
@@ -233,9 +245,9 @@ void draw_status_bar(bool sleep) {
         sprintf(percentStr, "%d%%", powerPercent);
     }
 
-    if(sleep) {
+    if(message) {
         wifi_image = (uint8_t *)image_status_sleeping;
-        sprintf(clock_str, "Sleeping");
+        sprintf(clock_str, message);
     } else {
         if(!wifi_up()) {
             wifi_image = (uint8_t *)image_status_wifi_off;
@@ -348,7 +360,7 @@ void init() {
 
     if (cyw43_arch_init()) {
         DEBUG_PRINTF("failed to initialise\n");
-        deinit(true);
+        deinit();
     }
     cyw43_arch_enable_sta_mode();
 
@@ -374,7 +386,7 @@ void init() {
 
         // If we were woken by the RTC alarm, just go back to sleep
         if (badger.pressed_to_wake(badger.RTC)) {
-            deinit(false);
+            deinit();
         }
         
         // Set the external RTC free byte so we can later determine if it has been initalized
@@ -384,10 +396,10 @@ void init() {
     }
 }
 
-void deinit(bool update_display) {
+void deinit(const char *message) {
     DEBUG_PRINTF("Going to sleep zZzZ\n");
-    if (update_display) {
-        draw_status_bar(true);
+    if (message) {
+        draw_status_bar(message);
         draw_tiles(NULL, NULL);
         badger.update();
         badger.uc8151->busy_wait();

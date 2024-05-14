@@ -57,6 +57,7 @@ Additional definitions have default values that can be overridden:
 | IP_GATEWAY          | 192.168.1.1    | Default gateway to use on network      |
 | IP_DNS              | 192.168.1.1    | DNS address to use for name resolution |
 | JSON_FILEPATH       | PROJECT_ROOT/config/tiles.json | JSON file containing tile definitions |
+| DEBUG_PRINT         | 0              | Enables debug printing to (USB) UART   |
 
 > NOTE: The Pico SDK also requires PICO_BOARD be set to pico_w to build wifi projects
 
@@ -145,7 +146,10 @@ cmake .. \
   -DWIFI_PASSWORD="cool-wifi-password" \
   -DWIFI_BSSID=66:55:44:33:22:11 \
   -DWIFI_CHANNEL=9 \
-  -DAPI_SERVER="api.cool.com"
+  -DAPI_SERVER="api.cool.com" \
+  -DPICO_SDK_PATH="/path/to/pico-sdk" \
+  -DPIMORONI_PICO_PATH="/path/to/pimoroni-pico" \
+  -DCMAKE_BUILD_TYPE=Release
 ```
 
 Cd to src folder and make:

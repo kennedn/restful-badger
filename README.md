@@ -3,6 +3,16 @@ Interface for interacting with RESTful APIs on the Badger 2040 W
 
 ![](./media/demo.gif)
 
+## TP4056 Mod
+
+The Badger 2040 W does not come with charge circuitry for LiPo batteries, a TP4056 module was soldered in situ to rectify this. The Badger 2040 W isolates the LiPo JST and USB power via a mosfet making this mod feasible.
+
+<p align="center">
+    <img src="./media/TP4056.JPG" width="48%"/>
+    <img src="./media/assembly.JPG" width="48%"/>
+</p>
+
+
 # Preparing the build environment
 
 Install build requirements:

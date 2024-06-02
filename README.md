@@ -45,7 +45,7 @@ export PICO_SDK_PATH="/path/to/pico-sdk"
 ## Grab my fork of the Pimoroni libraries
 
 ```shell
-git -b badger-2040w clone https://github.com/kennedn/pimoroni-pico /path/to/pimoroni-pico
+git clone -b badger-2040w https://github.com/kennedn/pimoroni-pico /path/to/pimoroni-pico
 export PIMORONI_PICO_PATH="/path/to/pimoroni-pico"
 ```
 

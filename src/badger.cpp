@@ -151,6 +151,7 @@ alarm_id_t rearm_halt_timeout(alarm_id_t id) {
     if (id != -1) {
         cancel_alarm(id);
     }
+    halt_initiated = false;
     return add_alarm_in_ms(HALT_TIMEOUT_MS, halt_timeout_callback, NULL, false);
 }
 
@@ -396,11 +397,18 @@ void init() {
         // Set the external RTC free byte so we can later determine if it has been initalized
         badger.pcf85063a->set_byte(1);
     } else {
-        retrieve_time(true);
+        retrieve_time(false);
     }
 }
 
 void deinit(const char *message) {
+    // Try again later if we are charging, because calling halt now would keep us awake
+    if (power_is_charging()) {
+        DEBUG_PRINTF("Cannot deinit whilst charging, rearming timer instead of sleeping\n");
+        rearm_halt_timeout(-1);
+        return;
+    }
+
     DEBUG_PRINTF("Going to sleep zZzZ\n");
     if (message) {
         draw_status_bar(message);
@@ -412,6 +420,7 @@ void deinit(const char *message) {
         cyw43_arch_deinit();
     }
     tiles_free();
+
     badger.led(0);
     badger.halt();
 }

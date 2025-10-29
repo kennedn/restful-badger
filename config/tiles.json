@@ -58,16 +58,16 @@
         "heading": "up",
         "icon_idx": 0,
         "tile_a": {
-            "name": "thermo",
-            "image_idx": 1,
+            "name": "bathroom",
+            "image_idx": 0,
             "action_request": {
                 "method": "POST",
-                "endpoint": "/v2/meross/thermometer",
+                "endpoint": "/v2/meross/bathroom",
                 "json_body": "{\"code\": \"toggle\"}"
             },
             "status_request": {
                 "method": "POST",
-                "endpoint": "/v2/meross/thermometer",
+                "endpoint": "/v2/meross/bathroom",
                 "json_body": "{\"code\": \"status\"}",
                 "key": "onoff",
                 "on_value": "1",
@@ -85,6 +85,23 @@
             "status_request": {
                 "method": "POST",
                 "endpoint": "/v2/meross/sad",
+                "json_body": "{\"code\": \"status\"}",
+                "key": "onoff",
+                "on_value": "1",
+                "off_value": "0"
+            }
+        },
+        "tile_c": {
+            "name": "lamp",
+            "image_idx": 1,
+            "action_request": {
+                "method": "POST",
+                "endpoint": "/v2/meross/bedroom_lamp",
+                "json_body": "{\"code\": \"toggle\"}"
+            },
+            "status_request": {
+                "method": "POST",
+                "endpoint": "/v2/meross/bedroom_lamp",
                 "json_body": "{\"code\": \"status\"}",
                 "key": "onoff",
                 "on_value": "1",
@@ -166,7 +183,42 @@
                 "on_value": "1",
                 "off_value": "0"
             }
+        },
+        "tile_b": {
+            "name": "slow cooker",
+            "image_idx": 1,
+            "action_request": {
+                "method": "POST",
+                "endpoint": "/v2/meross/slow_cooker",
+                "json_body": "{\"code\": \"toggle\"}"
+            },
+            "status_request": {
+                "method": "POST",
+                "endpoint": "/v2/meross/slow_cooker",
+                "json_body": "{\"code\": \"status\"}",
+                "key": "onoff",
+                "on_value": "1",
+                "off_value": "0"
+            }
+        },
+        "tile_c": {
+            "name": "tree",
+            "image_idx": 1,
+            "action_request": {
+                "method": "POST",
+                "endpoint": "/v2/meross/tree",
+                "json_body": "{\"code\": \"toggle\"}"
+            },
+            "status_request": {
+                "method": "POST",
+                "endpoint": "/v2/meross/tree",
+                "json_body": "{\"code\": \"status\"}",
+                "key": "onoff",
+                "on_value": "1",
+                "off_value": "0"
+            }
         }
+        
     },
     {
         "heading": "devices",

@@ -76,7 +76,7 @@ def main():
             append_string(buffer, request["off_value"])
 
     if args.wrap:
-        print(f"static const char tiles_data[{len(buffer)}] PROGMEM = {{\n    {', '.join(str(b) for b in buffer)}\n}};")
+        print(f"static const char tiles_data[{len(buffer)}] = {{\n    {', '.join(str(b) for b in buffer)}\n}};")
     else:
         print(','.join(str(b) for b in buffer), end="")
 

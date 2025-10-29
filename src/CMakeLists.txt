@@ -1,6 +1,7 @@
 add_executable(badger)
 
 # Default definitions
+set(TZ "GMT0BST,M3.5.0/1,M10.5.0/2" CACHE STRING "Specify the explicit timezone string") # defualt is BST
 set(NTP_SERVER "pool.ntp.org" CACHE STRING "Specify the NTP server")
 set(IP_ADDRESS "192.168.1.204" CACHE STRING "Specify IP Address")
 set(IP_GATEWAY "192.168.1.1" CACHE STRING "Specify IP Gateway")
@@ -31,6 +32,7 @@ target_compile_definitions(badger PRIVATE
     WIFI_CHANNEL=${WIFI_CHANNEL}
     API_SERVER=\"${API_SERVER}\"
 
+    TZ=\"${TZ}\"
     NTP_SERVER=\"${NTP_SERVER}\"
     IP_ADDRESS=${IP_ADDRESS_FMT}
     IP_GATEWAY=${IP_GATEWAY_FMT}

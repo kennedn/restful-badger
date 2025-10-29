@@ -51,7 +51,9 @@ void ntp_callback(datetime_t *datetime, void *arg) {
         ntp_time_set = true;
         return;
     }
-    DEBUG_PRINTF("Got datetime from NTP\n");
+    char dt_string[128];
+    datetime_to_str(dt_string, sizeof(dt_string), datetime);
+    DEBUG_PRINTF("Got datetime from NTP: %s\n", dt_string);
     badger.pcf85063a->set_datetime(datetime);
     rtc_set_datetime(datetime);
 
@@ -248,13 +250,13 @@ void draw_status_bar(const char *message) {
 
     if(message) {
         wifi_image = (uint8_t *)image_status_sleeping;
-        sprintf(clock_str, message);
+        snprintf(clock_str, sizeof(clock_str), "%s", message);
     } else {
         if(!wifi_up()) {
             wifi_image = (uint8_t *)image_status_wifi_off;
         }
         rtc_get_datetime(&datetime);
-        sprintf(clock_str, "%02d:%02d\n", datetime.hour, datetime.min);
+        snprintf(clock_str, sizeof(clock_str), "%02d:%02d\n", datetime.hour, datetime.min);
         heading_icon = (uint8_t *)tiles_get_heading()->icon;
     }
     clock_x_offset = badger.graphics->measure_text(clock_str, 2.0f) / 2;
@@ -356,6 +358,7 @@ void init() {
     badger.init();
     badger.led(255);
 
+
     adc_init();
     rtc_init();
 
@@ -393,7 +396,7 @@ void init() {
         // Set the external RTC free byte so we can later determine if it has been initalized
         badger.pcf85063a->set_byte(1);
     } else {
-        retrieve_time(false);
+        retrieve_time(true);
     }
 }
 
@@ -426,7 +429,6 @@ int main() {
     pwm_set_wrap(pwm_gpio_to_slice_num(badger.LED), 65535);
     pwm_init(pwm_gpio_to_slice_num(badger.LED), &cfg, true);
     gpio_set_function(badger.LED, GPIO_FUNC_PWM);
-
     gpio_set_function(badger.RTC, GPIO_FUNC_SIO);
     gpio_set_dir(badger.RTC, GPIO_IN);
     gpio_set_pulls(badger.RTC, false, true);

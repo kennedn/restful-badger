@@ -9,6 +9,7 @@
 #include "lwip/udp.h"
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
+#include "pico/util/datetime.h"
 
 typedef struct NTP_T_ {
     ip_addr_t ntp_server_address;
@@ -23,42 +24,23 @@ typedef struct NTP_T_ {
 #define NTP_DELTA 2208988800  // seconds between 1 Jan 1900 and 1 Jan 1970
 #define NTP_FAILURE_TIME (5 * 1000)
 
-static bool ntp_is_dst(struct tm *time_info) {
-    // DST is not in effect if month is between Nov - Feb
-    if (time_info->tm_mon < 2 || time_info->tm_mon > 9) {
-        return false;
-    }
-    // DST is in effect if month is between Apr - Sep
-    if (time_info->tm_mon > 2 && time_info->tm_mon < 9) {
-        return true;
-    }
+// static bool ntp_convert_epoch(const time_t *epoch, datetime_t *datetime) {
+//     struct tm *timeinfo = gmtime(epoch);
+//     if (timeinfo == NULL) {
+//         return false;
+//     }
+//     tm_to_datetime(timeinfo, datetime);
+//     datetime->year = timeinfo->tm_year + 1900;
+//     datetime->month = timeinfo->tm_mon + 1;
+//     datetime->day = timeinfo->tm_mday;
+//     datetime->dotw = timeinfo->tm_wday;
+//     datetime->hour = timeinfo->tm_hour;
+//     datetime->min = timeinfo->tm_min;
+//     datetime->sec = timeinfo->tm_sec;
 
-    // Edge case Sunday check for Mar and Oct
-    if (time_info->tm_mon == 2 || time_info->tm_mon == 9) {
-        // Calculate the date of the last Sunday
-        int last_sunday = 31 - ((time_info->tm_wday - time_info->tm_mday) % 7);
-        // Check if current day is after the last Sunday of March or before the last Sunday of Oct
-        if ((time_info->tm_mon == 2 && time_info->tm_mday > last_sunday) ||
-            (time_info->tm_mon == 9 && time_info->tm_mday < last_sunday))
-            return true;
-    }
 
-    return false;
-}
-
-static void ntp_convert_epoch(const time_t *epoch, datetime_t *datetime) {
-
-    struct tm *timeinfo = localtime(epoch);
-    printf("UTC Time: %s\n", asctime(gmtime(epoch)));
-    printf("Local Time: %s\n", asctime(timeinfo));
-    datetime->year = timeinfo->tm_year + 1900;
-    datetime->month = timeinfo->tm_mon + 1;
-    datetime->day = timeinfo->tm_mday;
-    datetime->dotw = timeinfo->tm_wday;
-    datetime->hour = (timeinfo->tm_hour + ntp_is_dst(timeinfo)) % 24;
-    datetime->min = timeinfo->tm_min;
-    datetime->sec = timeinfo->tm_sec;
-}
+//     return true;
+// }
 
 // Called with results of operation
 static void ntp_result(NTP_T *state, int status, time_t *result) {
@@ -69,9 +51,12 @@ static void ntp_result(NTP_T *state, int status, time_t *result) {
 
     if (status == 0 && result) {
         datetime_t datetime;
-        ntp_convert_epoch(result, &datetime);
-        if (state->ntp_callback) {
+        bool converted = time_to_datetime(*result, &datetime);
+        // bool converted = ntp_convert_epoch(result, &datetime);
+        if (converted && state->ntp_callback) {
             state->ntp_callback(&datetime, state->ntp_callback_arg);
+        } else if (state->ntp_callback) {
+            state->ntp_callback(NULL, state->ntp_callback_arg);
         }
     } else {
         if (state->ntp_callback) {
@@ -155,6 +140,8 @@ static NTP_T *ntp_init(ntp_callback_t callback, void *arg) {
 }
 
 void ntp_get_time(ntp_callback_t callback, void *arg) {
+    setenv("TZ", TZ, 1);
+    tzset();
     NTP_T *state = ntp_init(callback, arg);
     if (!state)
         return;

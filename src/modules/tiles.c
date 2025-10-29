@@ -15,7 +15,7 @@ TILES *tile_array;
 HEADING **heading_array;
 uint8_t heading_count;
 uint8_t tile_column;
-static const char tiles_data[] PROGMEM = {
+static const char tiles_data[] = {
     TILES_DATA};
 
 void tiles_init(const char *base_url, char size) {

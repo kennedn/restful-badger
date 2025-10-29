@@ -2,11 +2,6 @@
 
 #include "restful.h"
 
-#ifndef PROGMEM
-#define memcpy_P memcpy
-#define PROGMEM
-#endif
-
 typedef struct HEADING_ {
     char *heading;
     char *icon;
